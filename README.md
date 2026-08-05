@@ -59,10 +59,16 @@ atalhos exigem checklist manual (ver spec).
 
 ```powershell
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --windowed --collect-data mediapipe --collect-all cv2 run.py
+.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 -n facemesh-mouse run.py
 ```
 
-O executável fica em `dist/run.exe`. Pontos de atenção:
+`--paths src` é obrigatório: o código roda com `src/` adicionado ao
+`sys.path` em tempo de execução (ver `run.py`), mas a análise estática do
+PyInstaller não enxerga isso sozinha — sem essa flag o build "funciona"
+mas o exe falha com `ModuleNotFoundError: No module named 'facemesh_mouse'`.
+
+O executável fica em `dist/facemesh-mouse.exe` (~110MB testado). Pontos de
+atenção:
 
 - Arquivo grande (~200–400MB) por causa do MediaPipe/OpenCV/NumPy embutidos.
 - Primeira execução é mais lenta (descompacta pra pasta temporária).
