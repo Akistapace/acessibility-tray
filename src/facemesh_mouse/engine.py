@@ -53,6 +53,7 @@ class Engine:
         self._tracker: FaceTracker | None = None
         self._gesture_engine = GestureEngine(config)
         self._mouse_controller: MouseController | None = None
+        self._was_active = False
 
     def open_camera(self) -> bool:
         self._camera = cv2.VideoCapture(self._camera_index, cv2.CAP_DSHOW)
@@ -82,13 +83,24 @@ class Engine:
 
             if metrics is None:
                 self.no_face.set()
+                self._was_active = False
                 continue
             self.no_face.clear()
 
-            if self.control_enabled.is_set() and not self.paused.is_set():
-                self._mouse_controller.move_cursor(metrics)
-                for gesture_name in self._gesture_engine.evaluate(metrics):
-                    self._mouse_controller.fire_action(gesture_name)
+            self._drive_control(metrics)
+
+    def _drive_control(self, metrics: FaceMetrics) -> None:
+        """Drives the cursor/gestures for one frame with a face detected.
+        Reanchors whenever the previous frame did not drive the cursor --
+        covers startup, resume-from-pause, and face-reacquired uniformly."""
+        active_now = self.control_enabled.is_set() and not self.paused.is_set()
+        if active_now:
+            if not self._was_active:
+                self._mouse_controller.reanchor(metrics)
+            self._mouse_controller.move_cursor(metrics)
+            for gesture_name in self._gesture_engine.evaluate(metrics):
+                self._mouse_controller.fire_action(gesture_name)
+        self._was_active = active_now
 
     def stop(self) -> None:
         self._stop.set()
