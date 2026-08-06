@@ -1,26 +1,10 @@
 import pytest
 
-from facemesh_mouse.mouse_controller import ema_smooth, map_normalized_to_screen
-
-
-def test_map_normalized_to_screen_center():
-    x, y = map_normalized_to_screen(0.5, 0.5, 0.0, 1.0, 0.0, 1.0, 1920, 1080)
-    assert x == pytest.approx(959, abs=1)
-    assert y == pytest.approx(539, abs=1)
-
-
-def test_map_normalized_to_screen_clamps_outside_calibration_range():
-    x, y = map_normalized_to_screen(-1.0, 2.0, 0.3, 0.7, 0.3, 0.7, 1000, 1000)
-    assert x == 0
-    assert y == 999
-
-
-def test_map_normalized_to_screen_respects_calibration_bounds():
-    x, _y = map_normalized_to_screen(0.4, 0.5, 0.4, 0.6, 0.0, 1.0, 100, 100)
-    assert x == 0  # at x_min -> left edge
-
-    x, _y = map_normalized_to_screen(0.6, 0.5, 0.4, 0.6, 0.0, 1.0, 100, 100)
-    assert x == 99  # at x_max -> right edge
+from facemesh_mouse.mouse_controller import (
+    apply_deadzone,
+    compute_scale,
+    ema_smooth,
+)
 
 
 def test_ema_smooth_first_sample_passthrough():
@@ -35,3 +19,29 @@ def test_ema_smooth_blends_toward_new_value():
 def test_ema_smooth_high_weight_reacts_slowly():
     result = ema_smooth(prev=0.0, new=100.0, weight_of_prev=0.9)
     assert result == pytest.approx(10.0)
+
+
+def test_compute_scale_uses_screen_dim_over_axis_range():
+    scale = compute_scale(0.3, 0.7, 1000, sensitivity=1.0)
+    assert scale == pytest.approx(1000 / 0.4)
+
+
+def test_compute_scale_sensitivity_multiplies_linearly():
+    base = compute_scale(0.3, 0.7, 1000, sensitivity=1.0)
+    doubled = compute_scale(0.3, 0.7, 1000, sensitivity=2.0)
+    assert doubled == pytest.approx(base * 2)
+
+
+def test_compute_scale_zero_range_does_not_divide_by_zero():
+    scale = compute_scale(0.5, 0.5, 1000, sensitivity=1.0)
+    assert scale > 0
+
+
+def test_apply_deadzone_blocks_small_scaled_delta():
+    # |0.001 * 1000| = 1.0px, below the 4px deadzone
+    assert apply_deadzone(0.001, scale=1000, deadzone_px=4.0) == 0.0
+
+
+def test_apply_deadzone_passes_large_scaled_delta_unchanged():
+    # |0.01 * 1000| = 10px, above the 4px deadzone
+    assert apply_deadzone(0.01, scale=1000, deadzone_px=4.0) == 0.01

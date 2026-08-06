@@ -25,25 +25,20 @@ def clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def map_normalized_to_screen(
-    nx: float,
-    ny: float,
-    x_min: float,
-    x_max: float,
-    y_min: float,
-    y_max: float,
-    screen_w: int,
-    screen_h: int,
-) -> tuple[int, int]:
-    """Maps a normalized nose position through the calibrated range to
-    absolute screen pixel coordinates, clamped to the screen bounds."""
-    x_range = (x_max - x_min) or 1e-6
-    y_range = (y_max - y_min) or 1e-6
+def compute_scale(axis_min: float, axis_max: float, screen_dim: int, sensitivity: float) -> float:
+    """How many screen pixels one unit of normalized nose movement covers,
+    derived from the calibrated axis range and the user's sensitivity
+    multiplier."""
+    axis_range = (axis_max - axis_min) or 1e-6
+    return (screen_dim / axis_range) * sensitivity
 
-    fx = clamp((nx - x_min) / x_range, 0.0, 1.0)
-    fy = clamp((ny - y_min) / y_range, 0.0, 1.0)
 
-    return int(fx * (screen_w - 1)), int(fy * (screen_h - 1))
+def apply_deadzone(delta: float, scale: float, deadzone_px: float) -> float:
+    """Zeroes a raw normalized delta if its scaled (pixel) magnitude falls
+    below the deadzone threshold; otherwise returns it unchanged."""
+    if abs(delta * scale) < deadzone_px:
+        return 0.0
+    return delta
 
 
 def ema_smooth(prev: float | None, new: float, weight_of_prev: float) -> float:
