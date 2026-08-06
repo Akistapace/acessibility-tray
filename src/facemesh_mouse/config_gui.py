@@ -33,6 +33,46 @@ _ACTION_LABELS = {
 }
 _ACTION_BY_LABEL = {v: k for k, v in _ACTION_LABELS.items()}
 
+_CAPTURE_META = {
+    "up": {
+        "axis": "y",
+        "extreme": "min",
+        "label": "Cima",
+        "guide": "Mova a cabeça o máximo para cima e clique em Parar quando terminar.",
+    },
+    "down": {
+        "axis": "y",
+        "extreme": "max",
+        "label": "Baixo",
+        "guide": "Mova a cabeça o máximo para baixo e clique em Parar quando terminar.",
+    },
+    "left": {
+        "axis": "x",
+        "extreme": "min",
+        "label": "Esquerda",
+        "guide": "Mova a cabeça o máximo para a esquerda e clique em Parar quando terminar.",
+    },
+    "right": {
+        "axis": "x",
+        "extreme": "max",
+        "label": "Direita",
+        "guide": "Mova a cabeça o máximo para a direita e clique em Parar quando terminar.",
+    },
+}
+
+_METRIC_TO_GESTURE = {
+    "ear_a": "blink_left",
+    "ear_b": "blink_right",
+    "mouth_open_ratio": "mouth_open",
+    "eyebrow_raise_ratio": "eyebrow_raised",
+}
+_METRIC_BAR_LABELS = {
+    "ear_a": "Olho A",
+    "ear_b": "Olho B",
+    "mouth_open_ratio": "Boca aberta",
+    "eyebrow_raise_ratio": "Sobrancelha levantada",
+}
+
 
 class ConfigWindow:
     def __init__(
@@ -51,6 +91,10 @@ class ConfigWindow:
         self._tk_image = None
         self._after_id = None
 
+        self._recording_direction: str | None = None
+        self._recording_extreme: float | None = None
+        self._capture_buttons: dict[str, ttk.Button] = {}
+
         root.title("FaceMesh Mouse - Configuracao")
         root.protocol("WM_DELETE_WINDOW", self._start_and_hide)
 
@@ -63,55 +107,204 @@ class ConfigWindow:
         main.grid(row=0, column=0, sticky="nsew")
 
         self._canvas = tk.Label(main)
-        self._canvas.grid(row=0, column=0, rowspan=8, padx=(0, 10))
+        self._canvas.grid(row=0, column=0, rowspan=30, padx=(0, 10), sticky="n")
 
-        ttk.Label(
-            main,
-            text="Pisque cada olho e observe qual indicador reage\n"
-            "abaixo antes de mapear (label 'A'/'B' e' so' interno).",
-            justify="left",
-        ).grid(row=0, column=1, sticky="w")
+        row = 0
+        row = self._build_step1_calibration(main, row)
+        row = self._build_step2_gestures(main, row)
+        row = self._build_step3_start(main, row)
 
-        self._metric_labels: dict[str, tk.StringVar] = {}
-        row = 1
-        for key in ["ear_a", "ear_b", "mouth_open_ratio", "eyebrow_raise_ratio"]:
-            var = tk.StringVar(value=f"{key}: --")
-            self._metric_labels[key] = var
-            ttk.Label(main, textvariable=var).grid(row=row, column=1, sticky="w")
-            row += 1
-
-        ttk.Separator(main, orient="horizontal").grid(
-            row=row, column=1, sticky="ew", pady=8
+    def _section_header(self, main: ttk.Frame, row: int, text: str) -> int:
+        ttk.Label(main, text=text, font=("Segoe UI", 10, "bold")).grid(
+            row=row, column=1, sticky="w", pady=(10, 2)
         )
+        return row + 1
+
+    def _help_text(self, main: ttk.Frame, row: int, text: str) -> int:
+        ttk.Label(main, text=text, justify="left", wraplength=320).grid(
+            row=row, column=1, sticky="w", pady=(0, 4)
+        )
+        return row + 1
+
+    # -- step 1: calibration ------------------------------------------
+    def _build_step1_calibration(self, main: ttk.Frame, row: int) -> int:
+        row = self._section_header(main, row, "1. Calibrar movimento")
+        row = self._help_text(
+            main,
+            row,
+            "Grave os 4 extremos do movimento da cabeça: aperte Gravar, mova "
+            "a cabeça até o limite desejado e aperte Parar. Ajuste as barras "
+            "abaixo se o cursor estiver muito sensível ou tremendo.",
+        )
+
+        cal_frame = ttk.Frame(main)
+        cal_frame.grid(row=row, column=1, sticky="w")
+        for col, direction in enumerate(["up", "down", "left", "right"]):
+            btn = ttk.Button(
+                cal_frame,
+                text=f"▶ Gravar {_CAPTURE_META[direction]['label']}",
+                command=lambda d=direction: self._toggle_capture(d),
+            )
+            btn.grid(row=col // 2, column=col % 2, padx=2, pady=2, sticky="w")
+            self._capture_buttons[direction] = btn
         row += 1
 
-        ttk.Label(main, text="Calibracao (posicione a cabeca e capture):").grid(
+        self._capture_guide = tk.StringVar(value="")
+        ttk.Label(main, textvariable=self._capture_guide, justify="left", wraplength=320).grid(
             row=row, column=1, sticky="w"
         )
         row += 1
-        cal_frame = ttk.Frame(main)
-        cal_frame.grid(row=row, column=1, sticky="w")
-        ttk.Button(cal_frame, text="Capturar Cima", command=lambda: self._capture("up")).grid(row=0, column=0, padx=2)
-        ttk.Button(cal_frame, text="Capturar Baixo", command=lambda: self._capture("down")).grid(row=0, column=1, padx=2)
-        ttk.Button(cal_frame, text="Capturar Esquerda", command=lambda: self._capture("left")).grid(row=1, column=0, padx=2, pady=2)
-        ttk.Button(cal_frame, text="Capturar Direita", command=lambda: self._capture("right")).grid(row=1, column=1, padx=2, pady=2)
+
+        self._capture_live = tk.StringVar(value="")
+        ttk.Label(main, textvariable=self._capture_live).grid(row=row, column=1, sticky="w")
         row += 1
 
         self._cal_status = tk.StringVar(value=self._calibration_status_text())
         ttk.Label(main, textvariable=self._cal_status, justify="left").grid(
-            row=row, column=1, sticky="w"
+            row=row, column=1, sticky="w", pady=(0, 8)
         )
         row += 1
 
-        ttk.Separator(main, orient="horizontal").grid(
-            row=row, column=1, sticky="ew", pady=8
-        )
-        row += 1
-
-        ttk.Label(main, text="Mapeamento gesto -> acao:").grid(
+        self._deadzone_var = tk.DoubleVar(value=self._config.calibration.deadzone_px)
+        ttk.Label(main, text="Zona morta (ignora tremores pequenos):").grid(
             row=row, column=1, sticky="w"
         )
         row += 1
+        deadzone_row = ttk.Frame(main)
+        deadzone_row.grid(row=row, column=1, sticky="w")
+        ttk.Scale(
+            deadzone_row,
+            from_=0,
+            to=15,
+            orient="horizontal",
+            length=180,
+            variable=self._deadzone_var,
+            command=self._on_deadzone_change,
+        ).grid(row=0, column=0)
+        self._deadzone_label = ttk.Label(deadzone_row, text=self._deadzone_text())
+        self._deadzone_label.grid(row=0, column=1, padx=(6, 0))
+        row += 1
+
+        self._sensitivity_var = tk.DoubleVar(value=self._config.calibration.sensitivity)
+        ttk.Label(main, text="Sensibilidade (velocidade do cursor):").grid(
+            row=row, column=1, sticky="w", pady=(6, 0)
+        )
+        row += 1
+        sensitivity_row = ttk.Frame(main)
+        sensitivity_row.grid(row=row, column=1, sticky="w")
+        ttk.Scale(
+            sensitivity_row,
+            from_=0.3,
+            to=3.0,
+            orient="horizontal",
+            length=180,
+            variable=self._sensitivity_var,
+            command=self._on_sensitivity_change,
+        ).grid(row=0, column=0)
+        self._sensitivity_label = ttk.Label(sensitivity_row, text=self._sensitivity_text())
+        self._sensitivity_label.grid(row=0, column=1, padx=(6, 0))
+        row += 1
+
+        return row
+
+    def _calibration_status_text(self) -> str:
+        cal = self._config.calibration
+        return (
+            f"x: [{cal.x_min:.2f}, {cal.x_max:.2f}]  "
+            f"y: [{cal.y_min:.2f}, {cal.y_max:.2f}]"
+        )
+
+    def _deadzone_text(self) -> str:
+        return f"{self._config.calibration.deadzone_px:.0f}px"
+
+    def _sensitivity_text(self) -> str:
+        return f"{self._config.calibration.sensitivity:.1f}x"
+
+    def _on_deadzone_change(self, _value=None) -> None:
+        self._config.calibration.deadzone_px = round(self._deadzone_var.get(), 1)
+        self._deadzone_label.configure(text=self._deadzone_text())
+
+    def _on_sensitivity_change(self, _value=None) -> None:
+        self._config.calibration.sensitivity = round(self._sensitivity_var.get(), 2)
+        self._sensitivity_label.configure(text=self._sensitivity_text())
+
+    # -- calibration capture (play/pause) ------------------------------
+    def _toggle_capture(self, direction: str) -> None:
+        if self._recording_direction == direction:
+            self._stop_capture()
+        else:
+            self._start_capture(direction)
+
+    def _start_capture(self, direction: str) -> None:
+        _frame, metrics = self._engine.state.snapshot()
+        if metrics is None:
+            return
+        meta = _CAPTURE_META[direction]
+        seed = metrics.nose_y if meta["axis"] == "y" else metrics.nose_x
+        self._recording_direction = direction
+        self._recording_extreme = seed
+        for d, btn in self._capture_buttons.items():
+            if d == direction:
+                btn.configure(text="⏸ Parar")
+            else:
+                btn.configure(state="disabled")
+        self._capture_guide.set(meta["guide"])
+        self._update_live_extreme_label()
+
+    def _stop_capture(self) -> None:
+        if self._recording_direction is None:
+            return
+        direction = self._recording_direction
+        cal = self._config.calibration
+        if direction == "up":
+            cal.y_min = self._recording_extreme
+        elif direction == "down":
+            cal.y_max = self._recording_extreme
+        elif direction == "left":
+            cal.x_min = self._recording_extreme
+        elif direction == "right":
+            cal.x_max = self._recording_extreme
+
+        self._recording_direction = None
+        self._recording_extreme = None
+        for d, btn in self._capture_buttons.items():
+            btn.configure(state="normal", text=f"▶ Gravar {_CAPTURE_META[d]['label']}")
+        self._capture_guide.set("")
+        self._capture_live.set("")
+        self._cal_status.set(self._calibration_status_text())
+
+    def _update_live_extreme_label(self) -> None:
+        if self._recording_direction is None:
+            return
+        self._capture_live.set(f"Extremo atual: {self._recording_extreme:.3f}")
+
+    # -- step 2: gesture mapping ---------------------------------------
+    def _build_step2_gestures(self, main: ttk.Frame, row: int) -> int:
+        row = self._section_header(main, row, "2. Mapear gestos")
+        row = self._help_text(
+            main,
+            row,
+            "Pisque cada olho e observe qual barra reage abaixo antes de "
+            "mapear (rótulo 'A'/'B' é só interno). Escolha o que cada gesto "
+            "faz; '(nenhuma)' desativa o gesto.",
+        )
+
+        self._metric_bar_vars: dict[str, tk.DoubleVar] = {}
+        for key in ["ear_a", "ear_b", "mouth_open_ratio", "eyebrow_raise_ratio"]:
+            bar_row = ttk.Frame(main)
+            bar_row.grid(row=row, column=1, sticky="w", pady=1)
+            ttk.Label(bar_row, text=_METRIC_BAR_LABELS[key], width=18).grid(row=0, column=0)
+            var = tk.DoubleVar(value=0.0)
+            self._metric_bar_vars[key] = var
+            ttk.Progressbar(
+                bar_row,
+                orient="horizontal",
+                length=150,
+                mode="determinate",
+                maximum=100,
+                variable=var,
+            ).grid(row=0, column=1)
+            row += 1
 
         self._action_vars: dict[str, tk.StringVar] = {}
         for gesture_name in config_mod.GESTURE_NAMES:
@@ -131,32 +324,26 @@ class ConfigWindow:
             combo.grid(row=0, column=1)
             row += 1
 
-        ttk.Button(main, text="Iniciar tracking", command=self._start_and_hide).grid(
-            row=row, column=1, sticky="e", pady=(10, 0)
+        return row
+
+    # -- step 3: start ---------------------------------------------------
+    def _build_step3_start(self, main: ttk.Frame, row: int) -> int:
+        row = self._section_header(main, row, "3. Iniciar")
+        row = self._help_text(
+            main,
+            row,
+            "Ao iniciar, esta janela some e o cursor passa a seguir a "
+            "cabeça. Ctrl+Alt+P pausa/retoma a qualquer momento -- use pra "
+            "'levantar o mouse': o cursor congela, reposicione a cabeça numa "
+            "posição confortável e retome; o controle continua exatamente de "
+            "onde parou, sem pular. Ctrl+Alt+O reabre esta janela.",
         )
 
-    def _calibration_status_text(self) -> str:
-        cal = self._config.calibration
-        return (
-            f"x: [{cal.x_min:.2f}, {cal.x_max:.2f}]  "
-            f"y: [{cal.y_min:.2f}, {cal.y_max:.2f}]"
-        )
-
-    # -- calibration --------------------------------------------------
-    def _capture(self, direction: str) -> None:
-        _frame, metrics = self._engine.state.snapshot()
-        if metrics is None:
-            return
-        cal = self._config.calibration
-        if direction == "up":
-            cal.y_min = metrics.nose_y
-        elif direction == "down":
-            cal.y_max = metrics.nose_y
-        elif direction == "left":
-            cal.x_min = metrics.nose_x
-        elif direction == "right":
-            cal.x_max = metrics.nose_x
-        self._cal_status.set(self._calibration_status_text())
+        ttk.Button(
+            main, text="▶ Iniciar controle do mouse", command=self._start_and_hide
+        ).grid(row=row, column=1, sticky="e", pady=(6, 0))
+        row += 1
+        return row
 
     # -- live preview loop ---------------------------------------------
     def _tick(self) -> None:
@@ -165,20 +352,37 @@ class ConfigWindow:
             display = frame.copy()
             if metrics is not None:
                 self._draw_overlay(display, metrics)
-                self._metric_labels["ear_a"].set(f"ear_a: {metrics.ear_a:.3f}")
-                self._metric_labels["ear_b"].set(f"ear_b: {metrics.ear_b:.3f}")
-                self._metric_labels["mouth_open_ratio"].set(
-                    f"mouth_open_ratio: {metrics.mouth_open_ratio:.3f}"
-                )
-                self._metric_labels["eyebrow_raise_ratio"].set(
-                    f"eyebrow_raise_ratio: {metrics.eyebrow_raise_ratio:.3f}"
-                )
+                self._update_metric_bars(metrics)
+                if self._recording_direction is not None:
+                    self._track_capture_extreme(metrics)
             rgb = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(rgb)
             self._tk_image = ImageTk.PhotoImage(image=img)
             self._canvas.configure(image=self._tk_image)
 
         self._after_id = self._root.after(33, self._tick)
+
+    def _update_metric_bars(self, metrics) -> None:
+        values = {
+            "ear_a": metrics.ear_a,
+            "ear_b": metrics.ear_b,
+            "mouth_open_ratio": metrics.mouth_open_ratio,
+            "eyebrow_raise_ratio": metrics.eyebrow_raise_ratio,
+        }
+        for key, value in values.items():
+            gesture_name = _METRIC_TO_GESTURE[key]
+            threshold = self._config.gestures[gesture_name].threshold or 1e-6
+            pct = max(0.0, min(100.0, (value / threshold) * 100.0))
+            self._metric_bar_vars[key].set(pct)
+
+    def _track_capture_extreme(self, metrics) -> None:
+        meta = _CAPTURE_META[self._recording_direction]
+        live_value = metrics.nose_y if meta["axis"] == "y" else metrics.nose_x
+        if meta["extreme"] == "min":
+            self._recording_extreme = min(self._recording_extreme, live_value)
+        else:
+            self._recording_extreme = max(self._recording_extreme, live_value)
+        self._update_live_extreme_label()
 
     def _draw_overlay(self, frame, metrics) -> None:
         h, w = frame.shape[:2]

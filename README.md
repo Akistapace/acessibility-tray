@@ -28,17 +28,25 @@ python -m venv .venv
 .venv\Scripts\python run.py
 ```
 
-Na primeira execução abre a janela de configuração:
+Na primeira execução abre a janela de configuração, em 3 passos:
 
-1. Observe os indicadores `ear_a` / `ear_b` / `mouth_open_ratio` /
-   `eyebrow_raise_ratio` enquanto faz cada gesto, pra saber qual reage a
-   qual olho (os nomes "A"/"B" são só internos, sem relação fixa com
-   esquerda/direita anatômica por causa do espelhamento da câmera).
-2. Calibre a faixa de movimento: posicione a cabeça em cada extremo
-   (cima/baixo/esquerda/direita) e clique em "Capturar".
-3. Mapeie cada gesto pra uma ação de mouse no dropdown.
-4. Clique em "Iniciar tracking" (ou feche a janela) — a câmera some da
-   tela e o controle do mouse fica ativo em background.
+1. **Calibrar movimento**: clique em "Gravar Cima/Baixo/Esquerda/Direita",
+   mova a cabeça até o extremo desejado e clique em "Parar" — o valor mais
+   extremo atingido durante a gravação é o que fica salvo, não precisa
+   acertar o timing do clique. Ajuste "Zona morta" (ignora tremores
+   pequenos) e "Sensibilidade" (velocidade do cursor) se necessário.
+2. **Mapear gestos**: observe as barras `Olho A` / `Olho B` / `Boca aberta`
+   / `Sobrancelha levantada` reagirem enquanto faz cada gesto, pra saber
+   qual reage a qual olho (os nomes "A"/"B" são só internos, sem relação
+   fixa com esquerda/direita anatômica por causa do espelhamento da
+   câmera), e escolha uma ação de mouse pra cada gesto no dropdown.
+3. **Iniciar**: clique em "Iniciar controle do mouse" (ou feche a janela)
+   — a câmera some da tela e o controle do mouse fica ativo em background.
+
+O cursor se move de forma relativa à cabeça, como um mouse físico: `Ctrl+Alt+P`
+pausa e congela o cursor a qualquer momento — use pra "levantar o mouse",
+reposicionar a cabeça numa posição mais confortável, e retomar exatamente de
+onde parou, sem pular.
 
 Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair.
 Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
