@@ -54,6 +54,8 @@ class CalibrationConfig:
     y_min: float = 0.35
     y_max: float = 0.65
     smoothing: float = 0.7  # weight kept from the previous smoothed sample
+    deadzone_px: float = 4.0  # ignore scaled movement below this many screen pixels
+    sensitivity: float = 1.0  # multiplier on the calibration-derived cursor scale
 
 
 @dataclass
@@ -119,6 +121,8 @@ def load_config(path: str | Path) -> AppConfig:
         y_min=float(raw_cal.get("y_min", default.calibration.y_min)),
         y_max=float(raw_cal.get("y_max", default.calibration.y_max)),
         smoothing=float(raw_cal.get("smoothing", default.calibration.smoothing)),
+        deadzone_px=float(raw_cal.get("deadzone_px", default.calibration.deadzone_px)),
+        sensitivity=float(raw_cal.get("sensitivity", default.calibration.sensitivity)),
     )
 
     raw_gestures = raw.get("gestures", {})

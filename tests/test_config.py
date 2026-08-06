@@ -55,3 +55,32 @@ def test_load_config_invalid_json_returns_default(tmp_path):
     loaded = config_mod.load_config(path)
 
     assert loaded.calibration == config_mod.default_config().calibration
+
+
+def test_default_config_has_deadzone_and_sensitivity_defaults():
+    cfg = config_mod.default_config()
+    assert cfg.calibration.deadzone_px == 4.0
+    assert cfg.calibration.sensitivity == 1.0
+
+
+def test_load_config_partial_file_merges_deadzone_and_sensitivity_with_defaults(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"deadzone_px": 8.0}}))
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.calibration.deadzone_px == 8.0
+    assert loaded.calibration.sensitivity == config_mod.default_config().calibration.sensitivity
+
+
+def test_save_then_load_round_trip_includes_deadzone_and_sensitivity(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.deadzone_px = 6.5
+    original.calibration.sensitivity = 1.75
+
+    config_mod.save_config(path, original)
+    loaded = config_mod.load_config(path)
+
+    assert loaded.calibration.deadzone_px == 6.5
+    assert loaded.calibration.sensitivity == 1.75
