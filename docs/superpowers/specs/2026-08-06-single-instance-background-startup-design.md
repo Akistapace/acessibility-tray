@@ -119,14 +119,20 @@ closing the window) still saves + applies + hides, identically, whenever
 the window is shown (first run or reopened later via tray/hotkey/second
 launch).
 
-## Approach: Tray Double-Click Opens Config
+## Approach: Tray Left-Click Opens Config
 
 `tray.py`'s existing `pystray.MenuItem("Reabrir Config", self._open_config)`
-gets `default=True` added. On the Windows backend, the default menu item
-is the one activated when the user double-clicks the tray icon directly,
-without first opening the menu. Single left-click still opens the menu as
-it does today (unchanged) — this is purely an additional shortcut, not a
-behavior change to the existing click path.
+gets `default=True` added. On the Windows backend (`pystray/_win32.py`),
+`_on_notify` calls `self()` on `WM_LBUTTONUP` — a single left-click, no
+double-click or menu popup involved — which invokes `Icon`'s menu
+(`Menu.__call__`), and that dispatches straight to whichever `MenuItem` has
+`default=True`. So on Windows this makes a *single* left-click on the tray
+icon open the config window directly. This is a real behavior change from
+before: previously a left-click was a no-op (only right-click did
+anything, opening the menu). Right-click continues to open the existing
+full menu, unaffected. This was confirmed by reading the installed
+`pystray` library's Windows backend source, not just its docs, and is the
+intended, accepted behavior — not a regression to guard against.
 
 ## Error Handling
 

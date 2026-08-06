@@ -37,7 +37,10 @@ def _listen_loop(listener: socket.socket, on_signal: Callable[[], None]) -> None
         except OSError:
             return
         conn.close()
-        on_signal()
+        try:
+            on_signal()
+        except Exception:
+            pass
 
 
 def _signal_existing_instance(host: str, port: int) -> None:

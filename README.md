@@ -48,7 +48,9 @@ pausa e congela o cursor a qualquer momento — use pra "levantar o mouse",
 reposicionar a cabeça numa posição mais confortável, e retomar exatamente de
 onde parou, sem pular.
 
-Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair.
+Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair. Clique com o botão
+esquerdo no ícone também reabre a config direto; botão direito mostra o
+menu completo.
 Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
 Config salvo em `config.json` na raiz do projeto (ignorado pelo git).

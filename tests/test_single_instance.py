@@ -65,3 +65,31 @@ def test_listener_keeps_accepting_after_first_signal():
         assert call_count["n"] == 3
     finally:
         primary.close()
+
+
+def test_listener_survives_on_signal_exception():
+    port = _free_port()
+    call_count = {"n": 0}
+
+    def flaky_on_signal() -> None:
+        call_count["n"] += 1
+        if call_count["n"] == 1:
+            raise RuntimeError("simulated callback failure")
+
+    primary = single_instance.acquire_or_signal(on_signal=flaky_on_signal, port=port)
+    try:
+        assert primary is not None
+
+        # first connection triggers the raising callback
+        with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+            pass
+        time.sleep(0.05)
+        assert call_count["n"] == 1
+
+        # loop must still be alive to accept a second connection
+        with socket.create_connection(("127.0.0.1", port), timeout=1.0):
+            pass
+        time.sleep(0.05)
+        assert call_count["n"] == 2
+    finally:
+        primary.close()
