@@ -37,7 +37,7 @@ class TrayIcon:
             "FaceMesh Mouse",
             menu=pystray.Menu(
                 pystray.MenuItem(self._pause_label, self._toggle_pause),
-                pystray.MenuItem("Reabrir Config", self._open_config),
+                pystray.MenuItem("Reabrir Config", self._open_config, default=True),
                 pystray.MenuItem("Sair", self._quit),
             ),
         )
