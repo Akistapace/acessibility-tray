@@ -372,7 +372,10 @@ class ConfigWindow:
         for key, value in values.items():
             gesture_name = _METRIC_TO_GESTURE[key]
             threshold = self._config.gestures[gesture_name].threshold or 1e-6
-            pct = max(0.0, min(100.0, (value / threshold) * 100.0))
+            if key in ("ear_a", "ear_b"):
+                pct = max(0.0, min(100.0, (1.0 - value / threshold) * 100.0))
+            else:
+                pct = max(0.0, min(100.0, (value / threshold) * 100.0))
             self._metric_bar_vars[key].set(pct)
 
     def _track_capture_extreme(self, metrics) -> None:
