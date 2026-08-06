@@ -6,6 +6,7 @@ import tkinter as tk
 from tkinter import messagebox
 
 from . import config as config_mod
+from . import single_instance
 from .config_gui import ConfigWindow
 from .engine import Engine
 from .hotkeys import HotkeyListener
@@ -15,6 +16,16 @@ CONFIG_PATH = "config.json"
 
 
 def main() -> None:
+    _config_window_opener = None
+
+    def _on_singleton_signal() -> None:
+        if _config_window_opener is not None:
+            _config_window_opener()
+
+    singleton_socket = single_instance.acquire_or_signal(on_signal=_on_singleton_signal)
+    if singleton_socket is None:
+        sys.exit(0)
+
     app_config = config_mod.load_config(CONFIG_PATH)
     engine = Engine(app_config)
 
@@ -50,6 +61,8 @@ def main() -> None:
     def open_config() -> None:
         engine.control_enabled.clear()
         root.after(0, config_window.show)
+
+    _config_window_opener = open_config
 
     def quit_app() -> None:
         engine.stop()
