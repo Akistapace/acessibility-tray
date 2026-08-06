@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import sys
+from pathlib import Path
+
 import tkinter as tk
 from tkinter import messagebox
 
@@ -50,6 +52,10 @@ def main() -> None:
         CONFIG_PATH,
         on_start=_make_on_start(engine),
     )
+
+    if Path(CONFIG_PATH).exists():
+        engine.control_enabled.set()
+        root.withdraw()
 
     def toggle_pause() -> bool:
         if engine.paused.is_set():
