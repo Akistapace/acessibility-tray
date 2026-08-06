@@ -8,7 +8,7 @@
 
 V1 shipped with an absolute-position cursor mapping, a Portuguese-labeled but
 still fairly technical config GUI, and no way to reposition the head without
-the cursor jumping. This spec covers four related usability improvements
+the cursor jumping. This spec covers five related usability improvements
 requested after using v1:
 
 1. **Anchor-relative cursor mapping** — replaces absolute position mapping
@@ -24,7 +24,10 @@ requested after using v1:
 3. **Deadzone** — a small ignored-movement threshold (in screen pixels) so
    micro head tremor doesn't jitter the cursor when the user is trying to
    hold still.
-4. **Full GUI usability pass** — numbered step layout, plain-language
+4. **Sensitivity slider** — a user-adjustable multiplier on top of the
+   calibration-derived scale, so cursor speed can be tuned without
+   recalibrating.
+5. **Full GUI usability pass** — numbered step layout, plain-language
    labels, progress-bar metric displays instead of raw decimals, and
    contextual help text, aimed at a non-technical end user.
 
@@ -66,10 +69,13 @@ smoothed_y = ema_smooth(smoothed_y, target_y, smoothing)
 mouse.position = (smoothed_x, smoothed_y)
 ```
 
-`scale_x = screen_w / (x_max - x_min)`, `scale_y = screen_h / (y_max -
-y_min)`, using the same calibrated extremes as v1 — calibration still
-determines "how much head movement crosses the screen," it just drives a
-per-frame scale factor instead of an absolute bound.
+`scale_x = (screen_w / (x_max - x_min)) * sensitivity`, `scale_y = (screen_h
+/ (y_max - y_min)) * sensitivity`, using the same calibrated extremes as v1
+— calibration still determines "how much head movement crosses the
+screen," it just drives a per-frame scale factor instead of an absolute
+bound. `sensitivity` is the new user-facing multiplier (see Sensitivity
+Slider below), default `1.0` so a fresh config behaves exactly like the
+calibration-only scale.
 
 ### Reanchoring
 
@@ -138,17 +144,28 @@ a slider (0–15px) in the GUI's calibration step, labeled in pixel terms
 ("Ignorar tremores de até N px") rather than raw normalized units, since
 pixels are the intuitive unit for an end user. Applied per-axis per-frame as
 described above — small camera/head noise below the threshold contributes
-zero movement; real movement passes through unaffected. This is the only
-new tunable control added; a general sensitivity multiplier and an exposed
-smoothing slider were both considered and explicitly declined as
-out-of-scope for this pass.
+zero movement; real movement passes through unaffected.
+
+## Sensitivity Slider
+
+New `CalibrationConfig.sensitivity: float` field (default `1.0`, slider
+range `0.3`–`3.0` in the GUI), labeled "Sensibilidade" in the calibration
+step next to the deadzone slider. Multiplies `scale_x`/`scale_y` directly
+(see Mechanism above) — below 1.0 the user must move their head further to
+cross the screen (finer control), above 1.0 less head movement covers more
+screen (faster, twitchier). This is a runtime multiplier only; it doesn't
+change the stored calibration extremes, so recalibrating and adjusting
+sensitivity stay independent actions. An exposed smoothing (EMA) slider was
+considered and explicitly declined as out-of-scope for this pass.
 
 ## GUI Usability Pass
 
 Scope: full visual pass, not just relabeling.
 
 - **Numbered step layout**: "1. Calibrar movimento" → "2. Mapear gestos" →
-  "3. Iniciar", replacing the current single flat form.
+  "3. Iniciar", replacing the current single flat form. Step 1 holds both
+  the deadzone slider and the sensitivity slider alongside the capture
+  buttons.
 - **Progress-bar metrics**: `ear_a`, `ear_b`, `mouth_open_ratio`,
   `eyebrow_raise_ratio` render as `ttk.Progressbar` fills relative to that
   gesture's configured threshold (value / threshold, capped at 100%),
@@ -175,9 +192,10 @@ Scope: full visual pass, not just relabeling.
 - `tests/test_mouse_controller.py` currently tests `map_normalized_to_screen`
   (absolute mapping), which is removed. Replace with tests for the new pure
   delta-scaling function (raw delta + scale + deadzone → applied delta,
-  no OS/display dependency) and for `MouseController.reanchor` resetting
-  `_prev_nose_x/y`, `_target_x/y`, and `_smoothed_x/y` to the OS cursor
-  position.
+  no OS/display dependency), including cases where `sensitivity` != 1.0
+  scales the applied delta proportionally, and for `MouseController.reanchor`
+  resetting `_prev_nose_x/y`, `_target_x/y`, and `_smoothed_x/y` to the OS
+  cursor position.
 - `ema_smooth` is unchanged — no new tests needed beyond existing coverage.
 - `Engine`'s `was_active` reanchor-trigger logic gets a focused test:
   synthetic sequence of (metrics, paused-state) frames asserting
@@ -188,9 +206,6 @@ Scope: full visual pass, not just relabeling.
 
 ## Out of Scope (YAGNI)
 
-- A separate user-facing sensitivity/DPI multiplier slider (declined —
-  calibration-derived scale remains the only determinant of head-movement-
-  to-cursor-movement ratio).
 - Exposing the EMA `smoothing` value as a GUI control (declined — stays a
   config-file-only field, default unchanged).
 - A dedicated "recenter without full pause" action — pause/resume already
