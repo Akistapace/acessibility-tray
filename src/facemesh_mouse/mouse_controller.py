@@ -50,30 +50,50 @@ def ema_smooth(prev: float | None, new: float, weight_of_prev: float) -> float:
 
 
 class MouseController:
-    def __init__(self, config: AppConfig, screen_size: tuple[int, int]) -> None:
+    def __init__(self, config: AppConfig, screen_size: tuple[int, int], mouse=None) -> None:
         self._config = config
         self._screen_w, self._screen_h = screen_size
-        self._mouse = Controller()
+        self._mouse = mouse if mouse is not None else Controller()
+        self._prev_nose_x: float | None = None
+        self._prev_nose_y: float | None = None
+        self._target_x: float | None = None
+        self._target_y: float | None = None
         self._smoothed_x: float | None = None
         self._smoothed_y: float | None = None
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
 
+    def reanchor(self, metrics: FaceMetrics) -> None:
+        """Resets tracking to the real OS cursor position -- called whenever
+        control resumes after being inactive (pause, face loss, startup) so
+        the cursor never jumps."""
+        self._prev_nose_x = metrics.nose_x
+        self._prev_nose_y = metrics.nose_y
+        cur_x, cur_y = self._mouse.position
+        self._target_x = float(cur_x)
+        self._target_y = float(cur_y)
+        self._smoothed_x = float(cur_x)
+        self._smoothed_y = float(cur_y)
+
     def move_cursor(self, metrics: FaceMetrics) -> None:
         cal = self._config.calibration
-        target_x, target_y = map_normalized_to_screen(
-            metrics.nose_x,
-            metrics.nose_y,
-            cal.x_min,
-            cal.x_max,
-            cal.y_min,
-            cal.y_max,
-            self._screen_w,
-            self._screen_h,
-        )
-        self._smoothed_x = ema_smooth(self._smoothed_x, target_x, cal.smoothing)
-        self._smoothed_y = ema_smooth(self._smoothed_y, target_y, cal.smoothing)
+        scale_x = compute_scale(cal.x_min, cal.x_max, self._screen_w, cal.sensitivity)
+        scale_y = compute_scale(cal.y_min, cal.y_max, self._screen_h, cal.sensitivity)
+
+        dx = metrics.nose_x - self._prev_nose_x
+        dy = metrics.nose_y - self._prev_nose_y
+        self._prev_nose_x = metrics.nose_x
+        self._prev_nose_y = metrics.nose_y
+
+        dx = apply_deadzone(dx, scale_x, cal.deadzone_px)
+        dy = apply_deadzone(dy, scale_y, cal.deadzone_px)
+
+        self._target_x = clamp(self._target_x + dx * scale_x, 0, self._screen_w - 1)
+        self._target_y = clamp(self._target_y + dy * scale_y, 0, self._screen_h - 1)
+
+        self._smoothed_x = ema_smooth(self._smoothed_x, self._target_x, cal.smoothing)
+        self._smoothed_y = ema_smooth(self._smoothed_y, self._target_y, cal.smoothing)
         self._mouse.position = (int(self._smoothed_x), int(self._smoothed_y))
 
     def fire_action(self, gesture_name: str) -> None:
