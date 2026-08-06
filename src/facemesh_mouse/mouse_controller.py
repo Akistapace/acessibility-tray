@@ -1,7 +1,7 @@
 """Cursor mapping/smoothing math + action execution via pynput.
 
-The pure math (`map_normalized_to_screen`, `ema_smooth`) is separated from
-the pynput-driving `MouseController` so it can be unit tested without a
+The pure math (`compute_scale`, `apply_deadzone`, `ema_smooth`) is separated
+from the pynput-driving `MouseController` so it can be unit tested without a
 real display or OS mouse.
 """
 from __future__ import annotations
@@ -81,13 +81,16 @@ class MouseController:
         scale_x = compute_scale(cal.x_min, cal.x_max, self._screen_w, cal.sensitivity)
         scale_y = compute_scale(cal.y_min, cal.y_max, self._screen_h, cal.sensitivity)
 
-        dx = metrics.nose_x - self._prev_nose_x
-        dy = metrics.nose_y - self._prev_nose_y
-        self._prev_nose_x = metrics.nose_x
-        self._prev_nose_y = metrics.nose_y
+        dx_raw = metrics.nose_x - self._prev_nose_x
+        dy_raw = metrics.nose_y - self._prev_nose_y
 
-        dx = apply_deadzone(dx, scale_x, cal.deadzone_px)
-        dy = apply_deadzone(dy, scale_y, cal.deadzone_px)
+        dx = apply_deadzone(dx_raw, scale_x, cal.deadzone_px)
+        dy = apply_deadzone(dy_raw, scale_y, cal.deadzone_px)
+
+        if dx != 0.0:
+            self._prev_nose_x = metrics.nose_x
+        if dy != 0.0:
+            self._prev_nose_y = metrics.nose_y
 
         self._target_x = clamp(self._target_x + dx * scale_x, 0, self._screen_w - 1)
         self._target_y = clamp(self._target_y + dy * scale_y, 0, self._screen_h - 1)

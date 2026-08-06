@@ -123,3 +123,21 @@ def test_move_cursor_ignores_movement_below_deadzone():
     controller.move_cursor(_metrics(nose_x=0.501, nose_y=0.5))
 
     assert mouse.position == (500, 500)
+
+
+def test_move_cursor_accumulates_sub_deadzone_movement_across_frames():
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(sensitivity=1.0, deadzone_px=10.0, smoothing=0.0), (1000, 1000), mouse=mouse
+    )
+    controller.reanchor(_metrics(nose_x=0.5, nose_y=0.5))
+
+    # scale_x = 2500; each step below is individually under the 10px deadzone
+    controller.move_cursor(_metrics(nose_x=0.501, nose_y=0.5))  # 2.5px from anchor -> no movement yet
+    assert mouse.position == (500, 500)
+
+    controller.move_cursor(_metrics(nose_x=0.502, nose_y=0.5))  # still measured from the same anchor -> 5px -> still no movement
+    assert mouse.position == (500, 500)
+
+    controller.move_cursor(_metrics(nose_x=0.505, nose_y=0.5))  # 12.5px from the same anchor -> crosses the 10px deadzone
+    assert mouse.position[0] > 500

@@ -9,7 +9,7 @@ from tkinter import ttk
 from typing import Callable
 
 import cv2
-from PIL import Image, ImageDraw, ImageTk
+from PIL import Image, ImageTk
 
 from . import config as config_mod
 from .config import AppConfig
@@ -278,6 +278,16 @@ class ConfigWindow:
             return
         self._capture_live.set(f"Extremo atual: {self._recording_extreme:.3f}")
 
+    def _cancel_capture(self) -> None:
+        if self._recording_direction is None:
+            return
+        self._recording_direction = None
+        self._recording_extreme = None
+        for d, btn in self._capture_buttons.items():
+            btn.configure(state="normal", text=f"▶ Gravar {_CAPTURE_META[d]['label']}")
+        self._capture_guide.set("")
+        self._capture_live.set("")
+
     # -- step 2: gesture mapping ---------------------------------------
     def _build_step2_gestures(self, main: ttk.Frame, row: int) -> int:
         row = self._section_header(main, row, "2. Mapear gestos")
@@ -394,6 +404,7 @@ class ConfigWindow:
 
     # -- lifecycle ----------------------------------------------------
     def _start_and_hide(self) -> None:
+        self._cancel_capture()
         for gesture_name, var in self._action_vars.items():
             self._config.gestures[gesture_name].action = _ACTION_BY_LABEL[var.get()]
         config_mod.save_config(self._config_path, self._config)
