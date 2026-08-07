@@ -15,36 +15,65 @@ VALID_ACTIONS = {
 }
 
 GESTURE_NAMES = [
-    "blink_left",
-    "blink_right",
+    "blink_a",
+    "blink_b",
     "blink_both",
+    "eyebrow_a",
+    "eyebrow_b",
+    "eyebrow_both",
     "mouth_open",
-    "eyebrow_raised",
+    "mouth_left",
+    "mouth_right",
 ]
 
+# Gesture names used by older config.json files, mapped to their current
+# name. Migrated on load so an existing setup keeps its mappings.
+LEGACY_GESTURE_NAMES = {
+    "blink_left": "blink_a",
+    "blink_right": "blink_b",
+    "eyebrow_raised": "eyebrow_both",
+}
+
 DEFAULT_THRESHOLDS = {
-    "blink_left": 0.21,
-    "blink_right": 0.21,
+    "blink_a": 0.21,
+    "blink_b": 0.21,
     "blink_both": 0.21,
+    "eyebrow_a": 0.15,
+    "eyebrow_b": 0.15,
+    "eyebrow_both": 0.15,
     "mouth_open": 0.35,
-    "eyebrow_raised": 0.15,
+    "mouth_left": 0.05,
+    "mouth_right": 0.05,
 }
 
 DEFAULT_ACTIONS = {
-    "blink_left": "left_click",
-    "blink_right": "right_click",
+    "blink_a": "left_click",
+    "blink_b": "right_click",
     "blink_both": "none",
+    "eyebrow_a": "none",
+    "eyebrow_b": "none",
+    "eyebrow_both": "none",
     "mouth_open": "double_click",
-    "eyebrow_raised": "scroll_up",
+    "mouth_left": "none",
+    "mouth_right": "none",
 }
 
 DEFAULT_COOLDOWN_MS = {
-    "blink_left": 400,
-    "blink_right": 400,
+    "blink_a": 400,
+    "blink_b": 400,
     "blink_both": 400,
+    "eyebrow_a": 400,
+    "eyebrow_b": 400,
+    "eyebrow_both": 400,
     "mouth_open": 600,
-    "eyebrow_raised": 300,
+    "mouth_left": 400,
+    "mouth_right": 400,
 }
+
+# How long a gesture's condition must hold before it fires. The default is
+# comfortably above a natural blink (~100-150ms), which is what stops
+# involuntary expressions from firing actions.
+DEFAULT_HOLD_MS = {name: 400 for name in GESTURE_NAMES}
 
 
 @dataclass
@@ -63,6 +92,7 @@ class GestureConfig:
     action: str = "none"
     threshold: float = 0.2
     cooldown_ms: int = 400
+    hold_ms: int = 400
 
 
 @dataclass
@@ -77,6 +107,7 @@ def default_config() -> AppConfig:
             action=DEFAULT_ACTIONS[name],
             threshold=DEFAULT_THRESHOLDS[name],
             cooldown_ms=DEFAULT_COOLDOWN_MS[name],
+            hold_ms=DEFAULT_HOLD_MS[name],
         )
         for name in GESTURE_NAMES
     }
@@ -88,6 +119,7 @@ def _merge_gesture(name: str, raw: dict) -> GestureConfig:
         action=DEFAULT_ACTIONS[name],
         threshold=DEFAULT_THRESHOLDS[name],
         cooldown_ms=DEFAULT_COOLDOWN_MS[name],
+        hold_ms=DEFAULT_HOLD_MS[name],
     )
     action = raw.get("action", base.action)
     if action not in VALID_ACTIONS:
@@ -96,6 +128,7 @@ def _merge_gesture(name: str, raw: dict) -> GestureConfig:
         action=action,
         threshold=float(raw.get("threshold", base.threshold)),
         cooldown_ms=int(raw.get("cooldown_ms", base.cooldown_ms)),
+        hold_ms=int(raw.get("hold_ms", base.hold_ms)),
     )
 
 
@@ -125,7 +158,11 @@ def load_config(path: str | Path) -> AppConfig:
         sensitivity=float(raw_cal.get("sensitivity", default.calibration.sensitivity)),
     )
 
-    raw_gestures = raw.get("gestures", {})
+    raw_gestures = dict(raw.get("gestures", {}))
+    for legacy_name, current_name in LEGACY_GESTURE_NAMES.items():
+        if legacy_name in raw_gestures and current_name not in raw_gestures:
+            raw_gestures[current_name] = raw_gestures[legacy_name]
+
     gestures = {
         name: _merge_gesture(name, raw_gestures.get(name, {}))
         for name in GESTURE_NAMES

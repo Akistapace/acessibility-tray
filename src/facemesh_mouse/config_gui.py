@@ -16,11 +16,15 @@ from .config import AppConfig
 from .engine import Engine
 
 _GESTURE_LABELS = {
-    "blink_left": "Piscar olho A",
-    "blink_right": "Piscar olho B",
-    "blink_both": "Piscar os dois",
+    "blink_a": "Piscar olho A",
+    "blink_b": "Piscar olho B",
+    "blink_both": "Piscar os dois olhos",
+    "eyebrow_a": "Sobrancelha A",
+    "eyebrow_b": "Sobrancelha B",
+    "eyebrow_both": "As duas sobrancelhas",
     "mouth_open": "Boca aberta",
-    "eyebrow_raised": "Sobrancelha levantada",
+    "mouth_left": "Boca fechada p/ esquerda",
+    "mouth_right": "Boca fechada p/ direita",
 }
 
 _ACTION_LABELS = {
@@ -61,10 +65,10 @@ _CAPTURE_META = {
 }
 
 _METRIC_TO_GESTURE = {
-    "ear_a": "blink_left",
-    "ear_b": "blink_right",
+    "ear_a": "blink_a",
+    "ear_b": "blink_b",
     "mouth_open_ratio": "mouth_open",
-    "eyebrow_raise_ratio": "eyebrow_raised",
+    "eyebrow_raise_ratio": "eyebrow_both",
 }
 _METRIC_BAR_LABELS = {
     "ear_a": "Olho A",

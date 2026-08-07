@@ -1,5 +1,8 @@
+import pytest
+
+from facemesh_mouse import config as config_mod
 from facemesh_mouse.config import AppConfig, CalibrationConfig, GestureConfig
-from facemesh_mouse.gestures import GestureEngine
+from facemesh_mouse.gestures import GestureEngine, trigger_progress
 from facemesh_mouse.tracker import FaceMetrics
 
 
@@ -17,13 +20,17 @@ def _metrics(ear_a=0.3, ear_b=0.3, mouth=0.1, eyebrow=0.05, eyebrow_b=None, mout
     )
 
 
-def _config(**overrides):
+def _config(hold_ms=0, **overrides):
     gestures = {
-        "blink_left": GestureConfig(action="left_click", threshold=0.2, cooldown_ms=0),
-        "blink_right": GestureConfig(action="right_click", threshold=0.2, cooldown_ms=0),
-        "blink_both": GestureConfig(action="none", threshold=0.2, cooldown_ms=0),
-        "mouth_open": GestureConfig(action="double_click", threshold=0.3, cooldown_ms=0),
-        "eyebrow_raised": GestureConfig(action="scroll_up", threshold=0.1, cooldown_ms=0),
+        "blink_a": GestureConfig(action="left_click", threshold=0.2, cooldown_ms=0, hold_ms=hold_ms),
+        "blink_b": GestureConfig(action="right_click", threshold=0.2, cooldown_ms=0, hold_ms=hold_ms),
+        "blink_both": GestureConfig(action="none", threshold=0.2, cooldown_ms=0, hold_ms=hold_ms),
+        "eyebrow_a": GestureConfig(action="none", threshold=0.1, cooldown_ms=0, hold_ms=hold_ms),
+        "eyebrow_b": GestureConfig(action="none", threshold=0.1, cooldown_ms=0, hold_ms=hold_ms),
+        "eyebrow_both": GestureConfig(action="none", threshold=0.1, cooldown_ms=0, hold_ms=hold_ms),
+        "mouth_open": GestureConfig(action="double_click", threshold=0.3, cooldown_ms=0, hold_ms=hold_ms),
+        "mouth_left": GestureConfig(action="none", threshold=0.05, cooldown_ms=0, hold_ms=hold_ms),
+        "mouth_right": GestureConfig(action="none", threshold=0.05, cooldown_ms=0, hold_ms=hold_ms),
     }
     gestures.update(overrides)
     return AppConfig(calibration=CalibrationConfig(), gestures=gestures)
@@ -37,62 +44,148 @@ class FakeClock:
         return self.t
 
 
-def test_blink_left_fires_once_on_transition():
-    clock = FakeClock()
-    engine = GestureEngine(_config(), clock=clock)
+def test_blink_a_fires_once_on_transition():
+    engine = GestureEngine(_config(), clock=FakeClock())
 
-    # eye A closes below threshold, eye B stays open
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == ["blink_left"]
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
 
-    # holding the blink should not refire
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == []
-
-    # releasing then re-closing fires again
     engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3))
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == ["blink_left"]
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
 
 
 def test_blink_both_takes_precedence_over_single_eye_condition():
-    clock = FakeClock()
-    engine = GestureEngine(_config(), clock=clock)
-
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.1))
-    assert fired == ["blink_both"]
+    engine = GestureEngine(_config(), clock=FakeClock())
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.1)) == ["blink_both"]
 
 
-def test_mouth_open_and_eyebrow_can_fire_together():
-    clock = FakeClock()
-    engine = GestureEngine(_config(), clock=clock)
+def test_eyebrow_a_fires_alone_without_eyebrow_b():
+    engine = GestureEngine(_config(), clock=FakeClock())
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.05)) == ["eyebrow_a"]
 
-    fired = engine.evaluate(_metrics(mouth=0.5, eyebrow=0.2))
-    assert set(fired) == {"mouth_open", "eyebrow_raised"}
+
+def test_eyebrow_both_requires_both_sides_raised():
+    engine = GestureEngine(_config(), clock=FakeClock())
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == ["eyebrow_both"]
+
+
+def test_mouth_left_and_right_are_direction_specific():
+    engine = GestureEngine(_config(), clock=FakeClock())
+    assert engine.evaluate(_metrics(mouth_shift=-0.2)) == ["mouth_left"]
+
+    engine.evaluate(_metrics(mouth_shift=0.0))
+    assert engine.evaluate(_metrics(mouth_shift=0.2)) == ["mouth_right"]
+
+
+def test_lateral_mouth_gestures_require_a_closed_mouth():
+    engine = GestureEngine(_config(), clock=FakeClock())
+
+    # shifted far left, but the mouth is open -> not a closed-mouth gesture
+    assert engine.evaluate(_metrics(mouth_shift=-0.2, mouth=0.5)) == ["mouth_open"]
+
+    # same shift with the mouth closed does fire
+    assert engine.evaluate(_metrics(mouth_shift=-0.2, mouth=0.05)) == ["mouth_left"]
 
 
 def test_cooldown_blocks_rapid_retrigger():
     clock = FakeClock()
-    gestures = {
-        "blink_left": GestureConfig(action="left_click", threshold=0.2, cooldown_ms=1000),
-        "blink_right": GestureConfig(action="right_click", threshold=0.2, cooldown_ms=0),
-        "blink_both": GestureConfig(action="none", threshold=0.2, cooldown_ms=0),
-        "mouth_open": GestureConfig(action="double_click", threshold=0.3, cooldown_ms=0),
-        "eyebrow_raised": GestureConfig(action="scroll_up", threshold=0.1, cooldown_ms=0),
-    }
-    engine = GestureEngine(AppConfig(calibration=CalibrationConfig(), gestures=gestures), clock=clock)
+    engine = GestureEngine(
+        _config(blink_a=GestureConfig(action="left_click", threshold=0.2, cooldown_ms=1000, hold_ms=0)),
+        clock=clock,
+    )
 
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == ["blink_left"]
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
 
-    # release and re-trigger within the cooldown window
     engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3))
-    clock.t = 0.5  # 500ms later, cooldown is 1000ms
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == []
+    clock.t = 0.5
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
 
-    # past the cooldown window it fires again
     engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3))
     clock.t = 1.1
-    fired = engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
-    assert fired == ["blink_left"]
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+
+def test_natural_blink_does_not_fire_a_single_eye_gesture():
+    """The reported bug: a natural blink closes both eyes slightly out of
+    sync, and the asymmetric window used to satisfy blink_a immediately.
+    With a hold time it must never fire."""
+    clock = FakeClock()
+    engine = GestureEngine(_config(hold_ms=400), clock=clock)
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []  # eye A closes first
+
+    clock.t = 0.08
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.1)) == []  # eye B follows 80ms later
+
+    clock.t = 0.14
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []  # both reopen, ~140ms blink
+
+    clock.t = 1.0
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []  # and nothing fires later
+
+
+def test_deliberate_hold_fires_once_after_the_hold_time():
+    clock = FakeClock()
+    engine = GestureEngine(_config(hold_ms=400), clock=clock)
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+
+    clock.t = 0.399
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+
+    clock.t = 0.400
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+    clock.t = 0.900
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []  # no refire while held
+
+
+def test_releasing_and_reholding_fires_again():
+    clock = FakeClock()
+    engine = GestureEngine(_config(hold_ms=400), clock=clock)
+
+    clock.t = 0.0
+    engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
+    clock.t = 0.5
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+    clock.t = 0.6
+    engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3))  # release
+
+    clock.t = 0.7
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+    clock.t = 1.2
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+
+def test_hold_ms_zero_fires_immediately():
+    engine = GestureEngine(_config(hold_ms=0), clock=FakeClock())
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+
+def test_trigger_progress_reaches_one_at_an_above_threshold_trigger():
+    assert trigger_progress("mouth_open", _metrics(mouth=0.35), 0.35) == pytest.approx(1.0)
+
+
+def test_trigger_progress_reaches_one_at_a_below_threshold_trigger():
+    assert trigger_progress("blink_a", _metrics(ear_a=0.21), 0.21) == pytest.approx(1.0)
+
+
+def test_trigger_progress_is_partial_at_rest_for_blinks():
+    progress = trigger_progress("blink_a", _metrics(ear_a=0.30), 0.21)
+    assert 0.0 < progress < 1.0
+
+
+def test_trigger_progress_stays_in_the_unit_range():
+    assert trigger_progress("blink_a", _metrics(ear_a=0.01), 0.21) == 1.0
+    assert trigger_progress("mouth_open", _metrics(mouth=99.0), 0.35) == 1.0
+    assert trigger_progress("mouth_left", _metrics(mouth_shift=0.5), 0.05) == 0.0
+
+
+def test_trigger_progress_covers_every_gesture_name():
+    metrics = _metrics()
+    for name in config_mod.GESTURE_NAMES:
+        value = trigger_progress(name, metrics, 0.2)
+        assert 0.0 <= value <= 1.0
