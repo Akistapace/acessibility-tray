@@ -1532,8 +1532,8 @@ from facemesh_mouse.config import GESTURE_NAMES
 from facemesh_mouse.gesture_panel import ACTION_LABELS, GESTURE_LABELS, GesturePanel
 
 
-def test_gesture_panel_has_a_row_per_gesture(root):
-    panel = GesturePanel(root, default_config())
+def test_gesture_panel_has_a_row_per_gesture(container):
+    panel = GesturePanel(container, default_config())
     assert set(panel.rows) == set(GESTURE_NAMES)
 
 
@@ -1541,10 +1541,10 @@ def test_every_gesture_has_a_portuguese_label():
     assert set(GESTURE_LABELS) == set(GESTURE_NAMES)
 
 
-def test_gesture_panel_updates_every_bar(root):
-    panel = GesturePanel(root, default_config())
+def test_gesture_panel_updates_every_bar(container):
+    panel = GesturePanel(container, default_config())
     panel.frame.pack()
-    root.update()
+    container.update()
 
     panel.update(_metrics())
 
@@ -1553,8 +1553,8 @@ def test_gesture_panel_updates_every_bar(root):
         assert 0.0 <= value <= 1.0
 
 
-def test_blink_bar_fills_as_the_eye_closes(root):
-    panel = GesturePanel(root, default_config())
+def test_blink_bar_fills_as_the_eye_closes(container):
+    panel = GesturePanel(container, default_config())
 
     panel.update(_metrics())  # eyes open
     open_value = panel.rows["blink_a"].bar.get()
@@ -1566,9 +1566,9 @@ def test_blink_bar_fills_as_the_eye_closes(root):
     assert panel.rows["blink_a"].bar.get() > open_value
 
 
-def test_apply_to_config_writes_action_and_hold_time(root):
+def test_apply_to_config_writes_action_and_hold_time(container):
     config = default_config()
-    panel = GesturePanel(root, config)
+    panel = GesturePanel(container, config)
 
     panel.rows["mouth_left"].action_var.set(ACTION_LABELS["scroll_up"])
     panel.rows["mouth_left"].hold_var.set(700)
@@ -1578,16 +1578,23 @@ def test_apply_to_config_writes_action_and_hold_time(root):
     assert config.gestures["mouth_left"].hold_ms == 700
 
 
-def test_panel_starts_from_the_configs_current_values(root):
+def test_panel_starts_from_the_configs_current_values(container):
     config = default_config()
     config.gestures["blink_a"].action = "scroll_down"
     config.gestures["blink_a"].hold_ms = 250
 
-    panel = GesturePanel(root, config)
+    panel = GesturePanel(container, config)
 
     assert panel.rows["blink_a"].action_var.get() == ACTION_LABELS["scroll_down"]
     assert panel.rows["blink_a"].hold_var.get() == 250
 ```
+
+Note on fixtures: `tests/test_panels.py` shares **one** module-scoped Tk root
+across every test in the file, and `container` hands each test its own child
+frame inside it. Creating and destroying multiple Tk roots in a single
+process fails intermittently under pytest's output capture once cv2 and
+mediapipe are loaded, so no test in this file may construct its own root.
+Take `container` as the parent, never `root`.
 
 - [ ] **Step 2: Run the tests to verify they fail**
 
@@ -1780,31 +1787,45 @@ git commit -m "feat(gui): CustomTkinter gesture panel driven by shared trigger_p
 
 Append to `tests/test_panels.py`:
 
-```python
-def test_create_root_returns_a_tk_root():
-    import tkinter
+First, change the module-scoped `root` fixture in `tests/test_panels.py` so
+the shared root is built by `create_root()` itself. The fixture then doubles
+as the coverage for it, and no second Tk root is ever created — which
+matters, because a second root in the same process is exactly the operation
+that fails intermittently under pytest's output capture:
 
+```python
+@pytest.fixture(scope="module")
+def root():
     from facemesh_mouse.config_gui import create_root
 
     try:
         window = create_root()
-    except tkinter.TclError as exc:
+    except tk.TclError as exc:  # no display available
         pytest.skip(f"Tk unavailable: {exc}")
+    window.withdraw()
+    yield window
+    window.destroy()
+```
 
-    try:
-        assert isinstance(window, tkinter.Tk)
-        window.withdraw()
-        assert not window.winfo_viewable()
-        window.deiconify()
-        window.update()
-        assert window.winfo_viewable()
-    finally:
-        window.destroy()
+Then add this test, which asserts on that shared root rather than building
+its own:
+
+```python
+def test_create_root_returns_a_usable_tk_root(root):
+    assert isinstance(root, tk.Tk)
+
+    root.deiconify()
+    root.update()
+    assert root.winfo_viewable()
+
+    root.withdraw()
+    root.update()
+    assert not root.winfo_viewable()
 ```
 
 - [ ] **Step 2: Run the test to verify it fails**
 
-Run: `.venv\Scripts\python -m pytest tests/test_panels.py::test_create_root_returns_a_tk_root -v`
+Run: `.venv\Scripts\python -m pytest tests/test_panels.py -v`
 Expected: FAIL with `ImportError: cannot import name 'create_root' from 'facemesh_mouse.config_gui'`
 
 - [ ] **Step 3: Replace `config_gui.py` in full**
