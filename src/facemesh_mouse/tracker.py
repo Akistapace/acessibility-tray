@@ -14,6 +14,17 @@ NOSE_TIP = 1
 FOREHEAD_TOP = 10
 CHIN_BOTTOM = 152
 
+# Facial midline: the nose bridge (between the eyes) down to the chin. Both
+# points sit on the midline and close to the face plane, so the axis they
+# define rotates with the head instead of sliding under yaw -- which is what
+# makes the lateral-mouth measure survive the constant head turning this app
+# uses to move the cursor.
+FACE_AXIS_TOP = 168
+
+# Outer eye corners, used as a mouth-movement-independent face width.
+EYE_OUTER_A = 33
+EYE_OUTER_B = 263
+
 # 6-point EAR (Soukupova & Cech) landmark sets, in
 # [outer_corner, top1, top2, inner_corner, bottom2, bottom1] order.
 # Labels "left"/"right" are an internal convention only (see README) --
@@ -40,7 +51,9 @@ class FaceMetrics:
     ear_a: float
     ear_b: float
     mouth_open_ratio: float
-    eyebrow_raise_ratio: float
+    eyebrow_raise_a: float
+    eyebrow_raise_b: float
+    mouth_shift_ratio: float  # signed; positive = mouth pushed to the user's right
     landmarks: list  # raw (x, y) normalized points, for preview overlay only
 
 
@@ -55,6 +68,18 @@ def _eye_aspect_ratio(pts: list) -> float:
     if horizontal == 0:
         return 0.0
     return vertical / horizontal
+
+
+def signed_lateral_offset(point, axis_start, axis_end) -> float:
+    """Signed perpendicular distance from `point` to the line through
+    `axis_start` -> `axis_end`. Positive means the point lies on the higher-x
+    side of the axis. All arguments are (x, y) tuples."""
+    ax, ay = axis_start
+    bx, by = axis_end
+    px, py = point
+    dx, dy = bx - ax, by - ay
+    length = (dx * dx + dy * dy) ** 0.5 or 1e-6
+    return ((px - ax) * dy - (py - ay) * dx) / length
 
 
 class FaceTracker:
@@ -86,6 +111,7 @@ class FaceTracker:
         pts = [(p.x, p.y) for p in lm]
 
         face_height = _dist(pts[FOREHEAD_TOP], pts[CHIN_BOTTOM]) or 1e-6
+        face_width = _dist(pts[EYE_OUTER_A], pts[EYE_OUTER_B]) or 1e-6
 
         ear_a = _eye_aspect_ratio([pts[i] for i in EYE_A])
         ear_b = _eye_aspect_ratio([pts[i] for i in EYE_B])
@@ -94,9 +120,17 @@ class FaceTracker:
         mouth_horizontal = _dist(pts[MOUTH_CORNER_LEFT], pts[MOUTH_CORNER_RIGHT]) or 1e-6
         mouth_open_ratio = mouth_vertical / mouth_horizontal
 
-        eyebrow_dist_a = _dist(pts[EYEBROW_A], pts[EYELID_TOP_A])
-        eyebrow_dist_b = _dist(pts[EYEBROW_B], pts[EYELID_TOP_B])
-        eyebrow_raise_ratio = ((eyebrow_dist_a + eyebrow_dist_b) / 2.0) / face_height
+        eyebrow_raise_a = _dist(pts[EYEBROW_A], pts[EYELID_TOP_A]) / face_height
+        eyebrow_raise_b = _dist(pts[EYEBROW_B], pts[EYELID_TOP_B]) / face_height
+
+        mouth_center = (
+            (pts[MOUTH_CORNER_LEFT][0] + pts[MOUTH_CORNER_RIGHT][0]) / 2.0,
+            (pts[MOUTH_CORNER_LEFT][1] + pts[MOUTH_CORNER_RIGHT][1]) / 2.0,
+        )
+        mouth_shift_ratio = (
+            signed_lateral_offset(mouth_center, pts[FACE_AXIS_TOP], pts[CHIN_BOTTOM])
+            / face_width
+        )
 
         metrics = FaceMetrics(
             nose_x=pts[NOSE_TIP][0],
@@ -104,7 +138,9 @@ class FaceTracker:
             ear_a=ear_a,
             ear_b=ear_b,
             mouth_open_ratio=mouth_open_ratio,
-            eyebrow_raise_ratio=eyebrow_raise_ratio,
+            eyebrow_raise_a=eyebrow_raise_a,
+            eyebrow_raise_b=eyebrow_raise_b,
+            mouth_shift_ratio=mouth_shift_ratio,
             landmarks=pts,
         )
         return frame_bgr, metrics

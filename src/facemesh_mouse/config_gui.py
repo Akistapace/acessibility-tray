@@ -377,7 +377,7 @@ class ConfigWindow:
             "ear_a": metrics.ear_a,
             "ear_b": metrics.ear_b,
             "mouth_open_ratio": metrics.mouth_open_ratio,
-            "eyebrow_raise_ratio": metrics.eyebrow_raise_ratio,
+            "eyebrow_raise_ratio": (metrics.eyebrow_raise_a + metrics.eyebrow_raise_b) / 2.0,
         }
         for key, value in values.items():
             gesture_name = _METRIC_TO_GESTURE[key]

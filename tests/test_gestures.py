@@ -3,14 +3,16 @@ from facemesh_mouse.gestures import GestureEngine
 from facemesh_mouse.tracker import FaceMetrics
 
 
-def _metrics(ear_a=0.3, ear_b=0.3, mouth=0.1, eyebrow=0.05):
+def _metrics(ear_a=0.3, ear_b=0.3, mouth=0.1, eyebrow=0.05, eyebrow_b=None, mouth_shift=0.0):
     return FaceMetrics(
         nose_x=0.5,
         nose_y=0.5,
         ear_a=ear_a,
         ear_b=ear_b,
         mouth_open_ratio=mouth,
-        eyebrow_raise_ratio=eyebrow,
+        eyebrow_raise_a=eyebrow,
+        eyebrow_raise_b=eyebrow if eyebrow_b is None else eyebrow_b,
+        mouth_shift_ratio=mouth_shift,
         landmarks=[],
     )
 

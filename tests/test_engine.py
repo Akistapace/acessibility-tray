@@ -12,7 +12,9 @@ def _metrics(nose_x=0.5, nose_y=0.5):
         ear_a=0.3,
         ear_b=0.3,
         mouth_open_ratio=0.1,
-        eyebrow_raise_ratio=0.05,
+        eyebrow_raise_a=0.05,
+        eyebrow_raise_b=0.05,
+        mouth_shift_ratio=0.0,
         landmarks=[],
     )
 

@@ -25,7 +25,9 @@ def _condition(name: str, metrics: FaceMetrics, threshold: float) -> bool:
     if name == "mouth_open":
         return metrics.mouth_open_ratio > threshold
     if name == "eyebrow_raised":
-        return metrics.eyebrow_raise_ratio > threshold
+        # Transitional: reproduces the old averaged metric. Task 2 replaces
+        # this gesture with per-side eyebrow_a / eyebrow_b / eyebrow_both.
+        return (metrics.eyebrow_raise_a + metrics.eyebrow_raise_b) / 2.0 > threshold
     raise ValueError(f"Unknown gesture: {name}")
 
 
