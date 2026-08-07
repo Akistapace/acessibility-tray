@@ -25,8 +25,13 @@ FACE_AXIS_TOP = 168
 EYE_OUTER_A = 33
 EYE_OUTER_B = 263
 
-# 6-point EAR (Soukupova & Cech) landmark sets, in
-# [outer_corner, top1, top2, inner_corner, bottom2, bottom1] order.
+# 6-point EAR (Soukupova & Cech) landmark sets. Each array has the corner
+# landmarks at positions 0 and 3, but they do not agree on ordering: EYE_A
+# starts with the outer (temporal) corner 33, while EYE_B starts with the
+# inner (nasal) corner 362. EAR computation is unaffected because it only
+# uses distance(pos[0], pos[3]), which is symmetric. For measuring face width,
+# use the separate EYE_OUTER_A and EYE_OUTER_B constants which are guaranteed
+# to be the temporal corners.
 # Labels "left"/"right" are an internal convention only (see README) --
 # use the config GUI's live preview to see which indicator reacts to which
 # physical eye and map gestures accordingly.
@@ -72,8 +77,9 @@ def _eye_aspect_ratio(pts: list) -> float:
 
 def signed_lateral_offset(point, axis_start, axis_end) -> float:
     """Signed perpendicular distance from `point` to the line through
-    `axis_start` -> `axis_end`. Positive means the point lies on the higher-x
-    side of the axis. All arguments are (x, y) tuples."""
+    `axis_start` -> `axis_end`. All arguments are (x, y) tuples. Sign is
+    relative to the axis direction: for an axis running nose-bridge down to
+    chin (increasing y), positive means the point lies on the higher-x side."""
     ax, ay = axis_start
     bx, by = axis_end
     px, py = point
