@@ -25,8 +25,10 @@ def _metrics(nose_x=0.5, nose_y=0.5):
 
 @pytest.fixture(scope="module")
 def root():
+    from facemesh_mouse.config_gui import create_root
+
     try:
-        window = ctk.CTk()
+        window = create_root()
     except tk.TclError as exc:  # no display available
         pytest.skip(f"Tk unavailable: {exc}")
     window.withdraw()
@@ -176,3 +178,15 @@ def test_panel_starts_from_the_configs_current_values(container):
 
     assert panel.rows["blink_a"].action_var.get() == ACTION_LABELS["scroll_down"]
     assert panel.rows["blink_a"].hold_var.get() == 250
+
+
+def test_create_root_returns_a_usable_tk_root(root):
+    assert isinstance(root, tk.Tk)
+
+    root.deiconify()
+    root.update()
+    assert root.winfo_viewable()
+
+    root.withdraw()
+    root.update()
+    assert not root.winfo_viewable()

@@ -9,7 +9,7 @@ from tkinter import messagebox
 
 from . import config as config_mod
 from . import single_instance
-from .config_gui import ConfigWindow
+from .config_gui import ConfigWindow, create_root
 from .engine import Engine
 from .hotkeys import HotkeyListener
 from .tray import TrayIcon
@@ -41,7 +41,7 @@ def main() -> None:
         )
         sys.exit(1)
 
-    root = tk.Tk()
+    root = create_root()
     screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
     engine.start(screen_size)
 

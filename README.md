@@ -1,10 +1,14 @@
 # FaceMesh Mouse
 
-Controle o mouse com a cabeça: a ponta do nariz move o cursor, e gestos
-faciais (piscar, boca aberta, sobrancelha levantada) disparam clique
+Controle o mouse com a cabeça: a ponta do nariz move o cursor, e nove gestos
+faciais (piscar cada olho ou os dois, levantar cada sobrancelha ou as duas,
+abrir a boca, mover a boca fechada para cada lado) disparam clique
 esquerdo/direito/duplo ou scroll — tudo configurável numa janela de
-calibração. Depois de configurar, o tracking continua rodando em segundo
-plano (sem janela visível), com ícone na bandeja e atalhos globais.
+calibração. Cada gesto tem um tempo de espera: você precisa segurar a
+expressão por alguns décimos de segundo para ela valer, o que impede que
+piscadas naturais virem cliques. Depois de configurar, o tracking continua
+rodando em segundo plano (sem janela visível), com ícone na bandeja e
+atalhos globais.
 
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
 para o design completo.
@@ -35,11 +39,14 @@ Na primeira execução abre a janela de configuração, em 3 passos:
    extremo atingido durante a gravação é o que fica salvo, não precisa
    acertar o timing do clique. Ajuste "Zona morta" (ignora tremores
    pequenos) e "Sensibilidade" (velocidade do cursor) se necessário.
-2. **Mapear gestos**: observe as barras `Olho A` / `Olho B` / `Boca aberta`
-   / `Sobrancelha levantada` reagirem enquanto faz cada gesto, pra saber
-   qual reage a qual olho (os nomes "A"/"B" são só internos, sem relação
-   fixa com esquerda/direita anatômica por causa do espelhamento da
-   câmera), e escolha uma ação de mouse pra cada gesto no dropdown.
+2. **Mapear gestos**: nove gestos, cada um com uma barra que enche conforme
+   você se aproxima de dispará-lo. Faça a expressão e veja qual barra reage
+   pra saber qual é qual (os nomes "A"/"B" de olho e sobrancelha são só
+   internos, sem relação fixa com esquerda/direita anatômica por causa do
+   espelhamento da câmera; já a boca para os lados segue o que você vê no
+   preview). Escolha a ação de mouse de cada gesto e, no slider ao lado,
+   por quanto tempo a expressão precisa ser segurada pra valer (padrão
+   400ms — bem acima de uma piscada natural, que dura ~100-150ms).
 3. **Iniciar**: clique em "Iniciar controle do mouse" (ou feche a janela)
    — a câmera some da tela e o controle do mouse fica ativo em background.
 
@@ -69,13 +76,18 @@ atalhos exigem checklist manual (ver spec).
 
 ```powershell
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 -n facemesh-mouse run.py
+.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 --collect-data customtkinter -n facemesh-mouse run.py
 ```
 
 `--paths src` é obrigatório: o código roda com `src/` adicionado ao
 `sys.path` em tempo de execução (ver `run.py`), mas a análise estática do
 PyInstaller não enxerga isso sozinha — sem essa flag o build "funciona"
 mas o exe falha com `ModuleNotFoundError: No module named 'facemesh_mouse'`.
+
+`--collect-data customtkinter` também é obrigatório: o CustomTkinter carrega
+temas em JSON e fontes em tempo de execução, e a análise estática do
+PyInstaller não enxerga esses arquivos — sem a flag o exe abre e quebra ao
+montar a janela.
 
 O executável fica em `dist/facemesh-mouse.exe` (~110MB testado). Pontos de
 atenção:

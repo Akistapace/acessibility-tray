@@ -4,3 +4,4 @@ pynput
 pystray
 Pillow
 numpy<2
+customtkinter==6.0.0
