@@ -23,7 +23,7 @@ def _metrics(nose_x=0.5, nose_y=0.5):
     )
 
 
-@pytest.fixture
+@pytest.fixture(scope="module")
 def root():
     try:
         window = ctk.CTk()
@@ -34,20 +34,30 @@ def root():
     window.destroy()
 
 
-def test_calibration_panel_builds_and_updates(root):
+@pytest.fixture
+def container(root):
+    """A fresh parent widget per test. The root itself is shared and never
+    torn down mid-module: repeatedly creating and destroying Tk roots in one
+    process fails intermittently under pytest's output capture."""
+    frame = ctk.CTkFrame(root)
+    yield frame
+    frame.destroy()
+
+
+def test_calibration_panel_builds_and_updates(container):
     config = default_config()
-    panel = CalibrationPanel(root, config)
+    panel = CalibrationPanel(container, config)
     panel.frame.pack()
-    root.update()
+    container.update()
 
     panel.update(_metrics())
 
     assert panel.frame.winfo_exists()
 
 
-def test_capture_records_the_most_extreme_value_not_the_last(root):
+def test_capture_records_the_most_extreme_value_not_the_last(container):
     config = default_config()
-    panel = CalibrationPanel(root, config)
+    panel = CalibrationPanel(container, config)
 
     panel.start_capture("left")
     panel.update(_metrics(nose_x=0.40))
@@ -58,9 +68,9 @@ def test_capture_records_the_most_extreme_value_not_the_last(root):
     assert config.calibration.x_min == pytest.approx(0.22)
 
 
-def test_capture_down_records_the_maximum(root):
+def test_capture_down_records_the_maximum(container):
     config = default_config()
-    panel = CalibrationPanel(root, config)
+    panel = CalibrationPanel(container, config)
 
     panel.start_capture("down")
     panel.update(_metrics(nose_y=0.60))
@@ -71,10 +81,10 @@ def test_capture_down_records_the_maximum(root):
     assert config.calibration.y_max == pytest.approx(0.81)
 
 
-def test_cancel_capture_discards_without_writing_to_config(root):
+def test_cancel_capture_discards_without_writing_to_config(container):
     config = default_config()
     before = config.calibration.x_min
-    panel = CalibrationPanel(root, config)
+    panel = CalibrationPanel(container, config)
 
     panel.start_capture("left")
     panel.update(_metrics(nose_x=0.05))
@@ -84,8 +94,8 @@ def test_cancel_capture_discards_without_writing_to_config(root):
     assert panel.recording_direction is None
 
 
-def test_starting_a_capture_disables_the_other_buttons(root):
-    panel = CalibrationPanel(root, default_config())
+def test_starting_a_capture_disables_the_other_buttons(container):
+    panel = CalibrationPanel(container, default_config())
 
     panel.start_capture("left")
     assert str(panel.buttons["right"].cget("state")) == "disabled"
@@ -94,9 +104,9 @@ def test_starting_a_capture_disables_the_other_buttons(root):
     assert str(panel.buttons["right"].cget("state")) == "normal"
 
 
-def test_sliders_write_into_the_config(root):
+def test_sliders_write_into_the_config(container):
     config = default_config()
-    panel = CalibrationPanel(root, config)
+    panel = CalibrationPanel(container, config)
 
     panel.deadzone_var.set(9.0)
     panel.on_deadzone_change()
