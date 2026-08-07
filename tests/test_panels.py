@@ -115,3 +115,64 @@ def test_sliders_write_into_the_config(container):
 
     assert config.calibration.deadzone_px == pytest.approx(9.0)
     assert config.calibration.sensitivity == pytest.approx(2.5)
+
+
+from facemesh_mouse.config import GESTURE_NAMES
+from facemesh_mouse.gesture_panel import ACTION_LABELS, GESTURE_LABELS, GesturePanel
+
+
+def test_gesture_panel_has_a_row_per_gesture(container):
+    panel = GesturePanel(container, default_config())
+    assert set(panel.rows) == set(GESTURE_NAMES)
+
+
+def test_every_gesture_has_a_portuguese_label():
+    assert set(GESTURE_LABELS) == set(GESTURE_NAMES)
+
+
+def test_gesture_panel_updates_every_bar(container):
+    panel = GesturePanel(container, default_config())
+    panel.frame.pack()
+    container.update()
+
+    panel.update(_metrics())
+
+    for name in GESTURE_NAMES:
+        value = panel.rows[name].bar.get()
+        assert 0.0 <= value <= 1.0
+
+
+def test_blink_bar_fills_as_the_eye_closes(container):
+    panel = GesturePanel(container, default_config())
+
+    panel.update(_metrics())  # eyes open
+    open_value = panel.rows["blink_a"].bar.get()
+
+    closing = _metrics()
+    closing.ear_a = 0.21  # exactly at the default threshold
+    panel.update(closing)
+
+    assert panel.rows["blink_a"].bar.get() > open_value
+
+
+def test_apply_to_config_writes_action_and_hold_time(container):
+    config = default_config()
+    panel = GesturePanel(container, config)
+
+    panel.rows["mouth_left"].action_var.set(ACTION_LABELS["scroll_up"])
+    panel.rows["mouth_left"].hold_var.set(700)
+    panel.apply_to_config()
+
+    assert config.gestures["mouth_left"].action == "scroll_up"
+    assert config.gestures["mouth_left"].hold_ms == 700
+
+
+def test_panel_starts_from_the_configs_current_values(container):
+    config = default_config()
+    config.gestures["blink_a"].action = "scroll_down"
+    config.gestures["blink_a"].hold_ms = 250
+
+    panel = GesturePanel(container, config)
+
+    assert panel.rows["blink_a"].action_var.get() == ACTION_LABELS["scroll_down"]
+    assert panel.rows["blink_a"].hold_var.get() == 250
