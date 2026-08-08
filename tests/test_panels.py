@@ -2,8 +2,6 @@ import tkinter as tk
 
 import pytest
 
-ctk = pytest.importorskip("customtkinter")
-
 from facemesh_mouse.calibration_panel import CalibrationPanel
 from facemesh_mouse.config import default_config
 from facemesh_mouse.tracker import FaceMetrics
@@ -23,27 +21,8 @@ def _metrics(nose_x=0.5, nose_y=0.5):
     )
 
 
-@pytest.fixture(scope="module")
-def root():
-    from facemesh_mouse.config_gui import create_root
-
-    try:
-        window = create_root()
-    except tk.TclError as exc:  # no display available
-        pytest.skip(f"Tk unavailable: {exc}")
-    window.withdraw()
-    yield window
-    window.destroy()
-
-
-@pytest.fixture
-def container(root):
-    """A fresh parent widget per test. The root itself is shared and never
-    torn down mid-module: repeatedly creating and destroying Tk roots in one
-    process fails intermittently under pytest's output capture."""
-    frame = ctk.CTkFrame(root)
-    yield frame
-    frame.destroy()
+# `root` and `container` fixtures live in tests/conftest.py -- shared across
+# every GUI test module in this session so only one Tk root is ever created.
 
 
 def test_calibration_panel_builds(container):
