@@ -5,6 +5,7 @@ import pytest
 from facemesh_mouse.point_tracker import (
     MIN_ADD_DISTANCE_FRACTION,
     PointTracker,
+    PRUNING_CELL_FRACTION,
     mean_movement,
     prune_points,
     should_add_point,
@@ -28,16 +29,36 @@ def test_prune_drops_points_optical_flow_lost():
 
 
 def test_prune_deduplicates_points_sharing_a_grid_cell():
-    # head_size=250 -> cell = 250 * 0.02 = 5.0; (10,10) and (12,12) both
-    # fall in grid cell (2,2) at that cell size, (40,40) does not.
+    """Two points closer together than the grid cell collapse; a third,
+    farther than a cell width away, survives. The cell size is derived from
+    PRUNING_CELL_FRACTION, not hardcoded, so this test tracks the real
+    formula instead of a value that happens to match it."""
     head_size = 250.0
-    cur = _pts((10, 10), (12, 12), (40, 40))
-    prev = _pts((10, 10), (12, 12), (40, 40))
+    cell = head_size * PRUNING_CELL_FRACTION
+    cur = _pts((10, 10), (10 + cell * 0.4, 10 + cell * 0.4), (10 + cell * 6, 10 + cell * 6))
+    prev = cur.copy()
     status = np.array([1, 1, 1], dtype=np.uint8)
 
     kept_cur, _ = prune_points(cur, prev, status, nose=(20, 20), head_size=head_size)
 
     assert len(kept_cur) == 2
+
+
+def test_grid_deduplication_scales_with_head_size():
+    """The same absolute pixel gap between two points is a near-duplicate
+    when the tracked head is large (user close to the camera) but stays two
+    distinct points when the head is small (user farther away) -- the whole
+    reason the grid cell is a fraction of head_size instead of a fixed pixel
+    count."""
+    cur = _pts((10, 10), (14, 14))
+    prev = cur.copy()
+    status = np.array([1, 1], dtype=np.uint8)
+
+    small_head, _ = prune_points(cur, prev, status, nose=(0, 0), head_size=100.0)
+    large_head, _ = prune_points(cur, prev, status, nose=(0, 0), head_size=1000.0)
+
+    assert len(small_head) == 2  # cell = 2.0px -- the two points land in different cells
+    assert len(large_head) == 1  # cell = 20.0px -- both land in the same cell
 
 
 def test_prune_culls_points_beyond_the_head_ellipse():
