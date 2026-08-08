@@ -8,6 +8,7 @@ single-instance listener, and the skip-wizard startup path keep using
 """
 from __future__ import annotations
 
+import copy
 import tkinter as tk
 from typing import Callable
 
@@ -25,21 +26,21 @@ PREVIEW_SIZE = (480, 360)
 
 _HELP_TEXT = (
     "Como usar\n\n"
-    "1. Movimento -- grave ate onde sua cabeca chega em cada direcao. O cursor "
+    "1. Movimento -- grave até onde sua cabeça chega em cada direção. O cursor "
     "anda de forma relativa, como um mouse de verdade.\n\n"
-    "2. Gestos -- veja qual barra reage a cada expressao e escolha o que ela "
-    "faz. O tempo de cada gesto e quanto voce precisa segurar a expressao: e o "
-    "que impede piscadas naturais de virarem cliques. Deixe em 0 ms so se "
+    "2. Gestos -- veja qual barra reage a cada expressão e escolha o que ela "
+    "faz. O tempo de cada gesto é quanto você precisa segurar a expressão: é o "
+    "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
     "quiser disparo imediato.\n\n"
-    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeca.\n\n"
+    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça.\n\n"
     "Atalhos\n\n"
     "Ctrl+Alt+P pausa e retoma. Use como quem levanta o mouse da mesa: o "
-    "cursor congela, voce reposiciona a cabeca numa posicao confortavel, e ao "
+    "cursor congela, você reposiciona a cabeça numa posição confortável, e ao "
     "retomar o controle continua exatamente de onde parou, sem pular.\n\n"
-    "Ctrl+Alt+O reabre esta janela. Clicar no icone da bandeja tambem reabre; "
-    "o botao direito no icone mostra o menu completo.\n\n"
-    "Abrir o app de novo enquanto ele ja esta rodando nao cria uma segunda "
-    "copia: reabre esta janela."
+    "Ctrl+Alt+O reabre esta janela. Clicar no ícone da bandeja também reabre; "
+    "o botão direito no ícone mostra o menu completo.\n\n"
+    "Abrir o app de novo enquanto ele já está rodando não cria uma segunda "
+    "cópia: reabre esta janela."
 )
 
 
@@ -61,7 +62,12 @@ class ConfigWindow:
     ) -> None:
         self._root = root
         self._engine = engine
-        self._config = config
+        # A private copy: the panels mutate self._config live as sliders and
+        # captures change, and it must not be the same object Engine /
+        # GestureEngine / MouseController are using mid-frame. `_start_and_hide`
+        # hands this copy to `on_start`, which calls `engine.update_config`,
+        # so edits still reach the engine -- but only on an explicit save.
+        self._config = copy.deepcopy(config)
         self._config_path = config_path
         self._on_start = on_start
         self._tk_image = None
@@ -117,6 +123,16 @@ class ConfigWindow:
             wraplength=390,
             anchor="nw",
         ).pack(fill="both", expand=True, padx=6, pady=6)
+
+        # The preview image only arrives after the first camera frame, so
+        # the window's natural requested size at build time (empty preview
+        # label) underestimates the real need -- without an explicit size
+        # the CustomTkinter default of 200x200 leaves buttons and sliders
+        # off-screen. Measured requested sizes: root 977x576 with an empty
+        # preview, tabview alone 537x546, left column ~510 wide once the
+        # 480x360 preview image arrives -- real need is roughly 1080x580.
+        self._root.geometry("1120x720")
+        self._root.minsize(1080, 620)
 
     # -- live preview loop ----------------------------------------------
     def _tick(self) -> None:

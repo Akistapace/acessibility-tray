@@ -17,32 +17,32 @@ CAPTURE_META = {
         "axis": "y",
         "extreme": "min",
         "label": "Cima",
-        "guide": "Incline a cabeca o maximo para CIMA e clique em Parar.",
+        "guide": "Incline a cabeça o máximo para CIMA e clique em Parar.",
     },
     "down": {
         "axis": "y",
         "extreme": "max",
         "label": "Baixo",
-        "guide": "Incline a cabeca o maximo para BAIXO e clique em Parar.",
+        "guide": "Incline a cabeça o máximo para BAIXO e clique em Parar.",
     },
     "left": {
         "axis": "x",
         "extreme": "min",
         "label": "Esquerda",
-        "guide": "Vire a cabeca o maximo para a ESQUERDA e clique em Parar.",
+        "guide": "Vire a cabeça o máximo para a ESQUERDA e clique em Parar.",
     },
     "right": {
         "axis": "x",
         "extreme": "max",
         "label": "Direita",
-        "guide": "Vire a cabeca o maximo para a DIREITA e clique em Parar.",
+        "guide": "Vire a cabeça o máximo para a DIREITA e clique em Parar.",
     },
 }
 
 _HELP = (
-    "Grave ate onde sua cabeca chega em cada direcao: clique em Gravar, mova "
-    "a cabeca ate o limite confortavel e clique em Parar. O valor mais extremo "
-    "durante a gravacao e o que fica salvo, entao nao precisa acertar o tempo "
+    "Grave até onde sua cabeça chega em cada direção: clique em Gravar, mova "
+    "a cabeça até o limite confortável e clique em Parar. O valor mais extremo "
+    "durante a gravação é o que fica salvo, então não precisa acertar o tempo "
     "do clique."
 )
 

@@ -2,9 +2,11 @@
 is to firing, which mouse action it triggers, and how long it must be held.
 
 The live bars are driven by `gestures.trigger_progress`, the same function
-the detector's threshold logic is written against, so a bar can never
-disagree with the gesture it describes about which direction means "closer
-to firing".
+the detector's threshold logic is written against, so a bar reflects both
+which direction means "closer to firing" and whether the gesture is
+currently reachable at all -- a gesture blocked by another gesture's
+exclusion clause (e.g. blink_a while both eyes are closed) reads 0.0 instead
+of a misleading full bar.
 """
 from __future__ import annotations
 
@@ -40,10 +42,10 @@ ACTION_LABELS = {
 ACTION_BY_LABEL = {label: action for action, label in ACTION_LABELS.items()}
 
 _HELP = (
-    "A barra enche conforme voce se aproxima de disparar o gesto. Os rotulos "
-    "A e B dos olhos e das sobrancelhas sao internos: faca o gesto e veja qual "
-    "barra reage. O tempo e quanto voce precisa segurar a expressao para ela "
-    "valer -- e o que impede piscadas naturais de virarem cliques."
+    "A barra enche conforme você se aproxima de disparar o gesto. Os rótulos "
+    "A e B dos olhos e das sobrancelhas são internos: faça o gesto e veja qual "
+    "barra reage. O tempo é quanto você precisa segurar a expressão para ela "
+    "valer -- é o que impede piscadas naturais de virarem cliques."
 )
 
 

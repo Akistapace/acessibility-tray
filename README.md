@@ -11,7 +11,9 @@ rodando em segundo plano (sem janela visível), com ícone na bandeja e
 atalhos globais.
 
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
-para o design completo.
+(design original, com os cinco gestos v1 e sem `hold_ms`) e
+[docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md](docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md)
+(nove gestos, tempo de espera e a UI atual em abas) para o design completo.
 
 ## Requisitos
 
@@ -32,23 +34,28 @@ python -m venv .venv
 .venv\Scripts\python run.py
 ```
 
-Na primeira execução abre a janela de configuração, em 3 passos:
+Na primeira execução abre a janela de configuração: à esquerda ficam a
+prévia da câmera e o botão persistente "Iniciar controle do mouse"; à
+direita, três abas.
 
-1. **Calibrar movimento**: clique em "Gravar Cima/Baixo/Esquerda/Direita",
-   mova a cabeça até o extremo desejado e clique em "Parar" — o valor mais
-   extremo atingido durante a gravação é o que fica salvo, não precisa
-   acertar o timing do clique. Ajuste "Zona morta" (ignora tremores
-   pequenos) e "Sensibilidade" (velocidade do cursor) se necessário.
-2. **Mapear gestos**: nove gestos, cada um com uma barra que enche conforme
-   você se aproxima de dispará-lo. Faça a expressão e veja qual barra reage
-   pra saber qual é qual (os nomes "A"/"B" de olho e sobrancelha são só
-   internos, sem relação fixa com esquerda/direita anatômica por causa do
-   espelhamento da câmera; já a boca para os lados segue o que você vê no
-   preview). Escolha a ação de mouse de cada gesto e, no slider ao lado,
-   por quanto tempo a expressão precisa ser segurada pra valer (padrão
-   400ms — bem acima de uma piscada natural, que dura ~100-150ms).
-3. **Iniciar**: clique em "Iniciar controle do mouse" (ou feche a janela)
-   — a câmera some da tela e o controle do mouse fica ativo em background.
+- **Movimento**: clique em "Gravar Cima/Baixo/Esquerda/Direita", mova a
+  cabeça até o extremo desejado e clique em "Parar" — o valor mais extremo
+  atingido durante a gravação é o que fica salvo, não precisa acertar o
+  timing do clique. Ajuste "Zona morta" (ignora tremores pequenos) e
+  "Sensibilidade" (velocidade do cursor) se necessário.
+- **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
+  aproxima de dispará-lo. Faça a expressão e veja qual barra reage pra saber
+  qual é qual (os nomes "A"/"B" de olho e sobrancelha são só internos, sem
+  relação fixa com esquerda/direita anatômica por causa do espelhamento da
+  câmera; já a boca para os lados segue o que você vê no preview). Escolha a
+  ação de mouse de cada gesto e, no slider ao lado, por quanto tempo a
+  expressão precisa ser segurada pra valer (padrão 400ms — bem acima de uma
+  piscada natural, que dura ~100-150ms).
+- **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
+
+Quando terminar de calibrar e mapear os gestos, clique em "Iniciar controle
+do mouse" (ou feche a janela) — a janela some e o controle do mouse fica
+ativo em background.
 
 O cursor se move de forma relativa à cabeça, como um mouse físico: `Ctrl+Alt+P`
 pausa e congela o cursor a qualquer momento — use pra "levantar o mouse",
