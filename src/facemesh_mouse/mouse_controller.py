@@ -12,6 +12,8 @@ mouse.
 """
 from __future__ import annotations
 
+import math
+
 from pynput.mouse import Button, Controller
 
 from .config import AppConfig
@@ -57,6 +59,11 @@ class MouseController:
 
     def move_cursor(self, movement_x: float, movement_y: float) -> None:
         """Applies one frame of averaged point movement, in camera pixels."""
+        if not (math.isfinite(movement_x) and math.isfinite(movement_y)):
+            # clamp() would turn a NaN into the screen edge rather than
+            # rejecting it, teleporting the cursor. Drop the frame instead.
+            return
+
         cal = self._config.calibration
 
         delta_x = accelerate(movement_x * cal.sensitivity_x, cal.acceleration)
@@ -69,10 +76,11 @@ class MouseController:
         if abs(delta_y * self._screen_h) < cal.motion_threshold_px:
             delta_y = 0.0
 
-        # Minus on x: the preview frame is mirrored, so moving your head
-        # right moves the tracked points left in camera space.
+        # The tracked frame is already mirrored by FaceTracker.process, so
+        # camera x matches screen x: the user's right is +x in both. (Upstream
+        # tracky-mouse subtracts here because it tracks an unmirrored frame.)
         self._cursor_x = clamp(
-            self._cursor_x - delta_x * self._screen_w, 0, self._screen_w - 1
+            self._cursor_x + delta_x * self._screen_w, 0, self._screen_w - 1
         )
         self._cursor_y = clamp(
             self._cursor_y + delta_y * self._screen_h, 0, self._screen_h - 1
