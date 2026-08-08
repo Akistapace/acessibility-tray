@@ -26,8 +26,9 @@ PREVIEW_SIZE = (480, 360)
 
 _HELP_TEXT = (
     "Como usar\n\n"
-    "1. Movimento -- grave até onde sua cabeça chega em cada direção. O cursor "
-    "anda de forma relativa, como um mouse de verdade.\n\n"
+    "1. Movimento -- ajuste os sliders de sensibilidade, aceleração e limiar "
+    "de movimento. O cursor anda de forma relativa, como um mouse de "
+    "verdade.\n\n"
     "2. Gestos -- veja qual barra reage a cada expressão e escolha o que ela "
     "faz. O tempo de cada gesto é quanto você precisa segurar a expressão: é o "
     "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
@@ -128,11 +129,12 @@ class ConfigWindow:
         # the window's natural requested size at build time (empty preview
         # label) underestimates the real need -- without an explicit size
         # the CustomTkinter default of 200x200 leaves buttons and sliders
-        # off-screen. Measured requested sizes: root 977x576 with an empty
-        # preview, tabview alone 537x546, left column ~510 wide once the
-        # 480x360 preview image arrives -- real need is roughly 1080x580.
-        self._root.geometry("1120x720")
-        self._root.minsize(1080, 620)
+        # off-screen. With the capture-button grid gone and the sliders
+        # bounded to width=220, the content fits comfortably below these
+        # values (previously 1120x720 / 1080x620, sized around content that
+        # overflowed a 1536x864 screen).
+        self._root.geometry("1060x680")
+        self._root.minsize(1000, 620)
 
     # -- live preview loop ----------------------------------------------
     def _tick(self) -> None:
@@ -162,7 +164,7 @@ class ConfigWindow:
 
     # -- lifecycle -------------------------------------------------------
     def _start_and_hide(self) -> None:
-        self._calibration.cancel_capture()
+        self._calibration.apply_to_config()
         self._gestures.apply_to_config()
         config_mod.save_config(self._config_path, self._config)
         self._on_start(self._config)

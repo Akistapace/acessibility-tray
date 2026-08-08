@@ -46,80 +46,51 @@ def container(root):
     frame.destroy()
 
 
-def test_calibration_panel_builds_and_updates(container):
-    config = default_config()
-    panel = CalibrationPanel(container, config)
+def test_calibration_panel_builds(container):
+    panel = CalibrationPanel(container, default_config())
     panel.frame.pack()
     container.update()
-
-    panel.update(_metrics())
 
     assert panel.frame.winfo_exists()
 
 
-def test_capture_records_the_most_extreme_value_not_the_last(container):
-    config = default_config()
-    panel = CalibrationPanel(container, config)
-
-    panel.start_capture("left")
-    panel.update(_metrics(nose_x=0.40))
-    panel.update(_metrics(nose_x=0.22))  # the true extreme
-    panel.update(_metrics(nose_x=0.35))  # drifted back
-    panel.stop_capture()
-
-    assert config.calibration.x_min == pytest.approx(0.22)
-
-
-def test_capture_down_records_the_maximum(container):
-    config = default_config()
-    panel = CalibrationPanel(container, config)
-
-    panel.start_capture("down")
-    panel.update(_metrics(nose_y=0.60))
-    panel.update(_metrics(nose_y=0.81))
-    panel.update(_metrics(nose_y=0.70))
-    panel.stop_capture()
-
-    assert config.calibration.y_max == pytest.approx(0.81)
-
-
-def test_cancel_capture_discards_without_writing_to_config(container):
-    config = default_config()
-    # x_min is no longer a declared CalibrationConfig field -- the capture
-    # buttons still write it as an ad-hoc attribute (Task 3 removes them),
-    # so "not written" means "still absent" rather than "unchanged value".
-    before = getattr(config.calibration, "x_min", None)
-    panel = CalibrationPanel(container, config)
-
-    panel.start_capture("left")
-    panel.update(_metrics(nose_x=0.05))
-    panel.cancel_capture()
-
-    assert getattr(config.calibration, "x_min", None) == before
-    assert panel.recording_direction is None
-
-
-def test_starting_a_capture_disables_the_other_buttons(container):
+def test_calibration_panel_has_a_slider_per_tuning_field(container):
     panel = CalibrationPanel(container, default_config())
 
-    panel.start_capture("left")
-    assert str(panel.buttons["right"].cget("state")) == "disabled"
+    assert set(panel.sliders) == {
+        "sensitivity_x",
+        "sensitivity_y",
+        "acceleration",
+        "motion_threshold_px",
+    }
 
-    panel.stop_capture()
-    assert str(panel.buttons["right"].cget("state")) == "normal"
 
-
-def test_sliders_write_into_the_config(container):
+def test_sliders_write_their_field_into_the_config(container):
     config = default_config()
     panel = CalibrationPanel(container, config)
 
-    panel.motion_threshold_var.set(9.0)
-    panel.on_motion_threshold_change()
-    panel.sensitivity_x_var.set(0.06)
-    panel.on_sensitivity_x_change()
+    panel.sliders["sensitivity_x"].set(0.08)
+    panel.sliders["acceleration"].set(0.9)
+    panel.apply_to_config()
 
-    assert config.calibration.motion_threshold_px == pytest.approx(9.0)
-    assert config.calibration.sensitivity_x == pytest.approx(0.06)
+    assert config.calibration.sensitivity_x == pytest.approx(0.08, abs=1e-3)
+    assert config.calibration.acceleration == pytest.approx(0.9, abs=1e-3)
+
+
+def test_sliders_start_from_the_configs_values(container):
+    config = default_config()
+    config.calibration.sensitivity_y = 0.07
+
+    panel = CalibrationPanel(container, config)
+
+    assert panel.sliders["sensitivity_y"].get() == pytest.approx(0.07, abs=1e-3)
+
+
+def test_update_is_a_no_op(container):
+    panel = CalibrationPanel(container, default_config())
+    panel.update(_metrics())  # nothing on this tab is live any more
+
+    assert panel.frame.winfo_exists()
 
 
 from facemesh_mouse.config import GESTURE_NAMES

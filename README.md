@@ -11,9 +11,12 @@ rodando em segundo plano (sem janela visível), com ícone na bandeja e
 atalhos globais.
 
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
-(design original, com os cinco gestos v1 e sem `hold_ms`) e
+(design original, com os cinco gestos v1 e sem `hold_ms`),
 [docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md](docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md)
-(nove gestos, tempo de espera e a UI atual em abas) para o design completo.
+(nove gestos, tempo de espera e a UI atual em abas) e
+[docs/superpowers/specs/2026-08-07-optical-flow-tracking-design.md](docs/superpowers/specs/2026-08-07-optical-flow-tracking-design.md)
+(cursor relativo por optical flow, sliders de sensibilidade/aceleração no
+lugar da calibração de quatro pontos) para o design completo.
 
 ## Requisitos
 
@@ -38,11 +41,15 @@ Na primeira execução abre a janela de configuração: à esquerda ficam a
 prévia da câmera e o botão persistente "Iniciar controle do mouse"; à
 direita, três abas.
 
-- **Movimento**: clique em "Gravar Cima/Baixo/Esquerda/Direita", mova a
-  cabeça até o extremo desejado e clique em "Parar" — o valor mais extremo
-  atingido durante a gravação é o que fica salvo, não precisa acertar o
-  timing do clique. Ajuste "Zona morta" (ignora tremores pequenos) e
-  "Sensibilidade" (velocidade do cursor) se necessário.
+- **Movimento**: não há mais gravação de extremos — o cursor se move de
+  forma relativa à cabeça, como um mouse de verdade. Quatro sliders ajustam
+  esse movimento: sensibilidade horizontal e vertical (quanto o cursor anda
+  para cada movimento da cabeça em cada eixo — a vertical costuma precisar
+  ser maior, porque a cabeça se move menos nesse eixo), aceleração (deixa
+  movimentos pequenos mais lentos e movimentos grandes mais rápidos, para
+  mirar com precisão sem perder velocidade) e limiar de movimento (ignora
+  tremores menores que um certo número de pixels, pra ajudar o cursor a
+  parar completamente).
 - **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
   aproxima de dispará-lo. Faça a expressão e veja qual barra reage pra saber
   qual é qual (os nomes "A"/"B" de olho e sobrancelha são só internos, sem
@@ -103,3 +110,11 @@ atenção:
 - Primeira execução é mais lenta (descompacta pra pasta temporária).
 - Exe não assinado → Windows SmartScreen avisa no primeiro uso.
 - Precisa conceder permissão de câmera do Windows ao exe na primeira vez.
+
+## Créditos
+
+O pipeline de rastreamento da cabeça (rastreamento de pontos por optical
+flow, poda dos pontos perdidos/duplicados/fora da região da cabeça, curva de
+aceleração do cursor) é portado do
+[tracky-mouse](https://github.com/1j01/tracky-mouse), de Isaiah Odhner,
+licenciado sob MIT.
