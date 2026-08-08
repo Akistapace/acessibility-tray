@@ -85,14 +85,17 @@ def test_capture_down_records_the_maximum(container):
 
 def test_cancel_capture_discards_without_writing_to_config(container):
     config = default_config()
-    before = config.calibration.x_min
+    # x_min is no longer a declared CalibrationConfig field -- the capture
+    # buttons still write it as an ad-hoc attribute (Task 3 removes them),
+    # so "not written" means "still absent" rather than "unchanged value".
+    before = getattr(config.calibration, "x_min", None)
     panel = CalibrationPanel(container, config)
 
     panel.start_capture("left")
     panel.update(_metrics(nose_x=0.05))
     panel.cancel_capture()
 
-    assert config.calibration.x_min == before
+    assert getattr(config.calibration, "x_min", None) == before
     assert panel.recording_direction is None
 
 
@@ -110,13 +113,13 @@ def test_sliders_write_into_the_config(container):
     config = default_config()
     panel = CalibrationPanel(container, config)
 
-    panel.deadzone_var.set(9.0)
-    panel.on_deadzone_change()
-    panel.sensitivity_var.set(2.5)
-    panel.on_sensitivity_change()
+    panel.motion_threshold_var.set(9.0)
+    panel.on_motion_threshold_change()
+    panel.sensitivity_x_var.set(0.06)
+    panel.on_sensitivity_x_change()
 
-    assert config.calibration.deadzone_px == pytest.approx(9.0)
-    assert config.calibration.sensitivity == pytest.approx(2.5)
+    assert config.calibration.motion_threshold_px == pytest.approx(9.0)
+    assert config.calibration.sensitivity_x == pytest.approx(0.06)
 
 
 from facemesh_mouse.config import GESTURE_NAMES

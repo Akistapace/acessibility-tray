@@ -15,7 +15,30 @@ import cv2
 from .config import AppConfig
 from .gestures import GestureEngine
 from .mouse_controller import MouseController
-from .tracker import FaceMetrics, FaceTracker
+from .point_tracker import PointTracker
+from .tracker import EYE_OUTER_A, EYE_OUTER_B, FaceMetrics, FaceTracker
+
+# Landmarks seeded as tracking points, following tracky-mouse: the two
+# nostrils and the midpoint between the eyes.
+_SEED_LANDMARKS = (98, 327, 168)
+
+
+def _seed_candidates(metrics: FaceMetrics, width: int, height: int) -> list[tuple[float, float]]:
+    return [
+        (metrics.landmarks[index][0] * width, metrics.landmarks[index][1] * height)
+        for index in _SEED_LANDMARKS
+        if index < len(metrics.landmarks)
+    ]
+
+
+def _head_size_px(metrics: FaceMetrics, width: int, height: int) -> float:
+    """Outer-eye-corner distance in pixels, used as the radius of the
+    region beyond which tracked points are culled."""
+    left = metrics.landmarks[EYE_OUTER_A]
+    right = metrics.landmarks[EYE_OUTER_B]
+    return float(
+        ((left[0] - right[0]) * width) ** 2 + ((left[1] - right[1]) * height) ** 2
+    ) ** 0.5
 
 
 class SharedState:
@@ -53,6 +76,7 @@ class Engine:
         self._tracker: FaceTracker | None = None
         self._gesture_engine = GestureEngine(config)
         self._mouse_controller: MouseController | None = None
+        self._point_tracker = PointTracker()
         self._was_active = False
 
     def open_camera(self) -> bool:
@@ -84,8 +108,16 @@ class Engine:
             if metrics is None:
                 self.no_face.set()
                 self._was_active = False
+                self._point_tracker.reset()
                 continue
             self.no_face.clear()
+
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            height, width = gray.shape[:2]
+            nose = (metrics.nose_x * width, metrics.nose_y * height)
+            head_size = _head_size_px(metrics, width, height)
+            candidates = _seed_candidates(metrics, width, height)
+            self._point_tracker.update(gray, nose, head_size, candidates)
 
             self._drive_control(metrics)
 
@@ -96,8 +128,8 @@ class Engine:
         active_now = self.control_enabled.is_set() and not self.paused.is_set()
         if active_now:
             if not self._was_active:
-                self._mouse_controller.reanchor(metrics)
-            self._mouse_controller.move_cursor(metrics)
+                self._mouse_controller.reanchor()
+            self._mouse_controller.move_cursor(*self._point_tracker.get_movement())
             for gesture_name in self._gesture_engine.evaluate(metrics):
                 self._mouse_controller.fire_action(gesture_name)
         self._was_active = active_now

@@ -1,55 +1,7 @@
 import pytest
 
-from facemesh_mouse.mouse_controller import (
-    apply_deadzone,
-    compute_scale,
-    ema_smooth,
-)
-
-
-def test_ema_smooth_first_sample_passthrough():
-    assert ema_smooth(None, 42.0, 0.9) == 42.0
-
-
-def test_ema_smooth_blends_toward_new_value():
-    result = ema_smooth(prev=0.0, new=100.0, weight_of_prev=0.5)
-    assert result == pytest.approx(50.0)
-
-
-def test_ema_smooth_high_weight_reacts_slowly():
-    result = ema_smooth(prev=0.0, new=100.0, weight_of_prev=0.9)
-    assert result == pytest.approx(10.0)
-
-
-def test_compute_scale_uses_screen_dim_over_axis_range():
-    scale = compute_scale(0.3, 0.7, 1000, sensitivity=1.0)
-    assert scale == pytest.approx(1000 / 0.4)
-
-
-def test_compute_scale_sensitivity_multiplies_linearly():
-    base = compute_scale(0.3, 0.7, 1000, sensitivity=1.0)
-    doubled = compute_scale(0.3, 0.7, 1000, sensitivity=2.0)
-    assert doubled == pytest.approx(base * 2)
-
-
-def test_compute_scale_zero_range_does_not_divide_by_zero():
-    scale = compute_scale(0.5, 0.5, 1000, sensitivity=1.0)
-    assert scale > 0
-
-
-def test_apply_deadzone_blocks_small_scaled_delta():
-    # |0.001 * 1000| = 1.0px, below the 4px deadzone
-    assert apply_deadzone(0.001, scale=1000, deadzone_px=4.0) == 0.0
-
-
-def test_apply_deadzone_passes_large_scaled_delta_unchanged():
-    # |0.01 * 1000| = 10px, above the 4px deadzone
-    assert apply_deadzone(0.01, scale=1000, deadzone_px=4.0) == 0.01
-
-
 from facemesh_mouse.config import AppConfig, CalibrationConfig
-from facemesh_mouse.mouse_controller import MouseController
-from facemesh_mouse.tracker import FaceMetrics
+from facemesh_mouse.mouse_controller import MouseController, accelerate
 
 
 class FakeMouse:
@@ -57,89 +9,94 @@ class FakeMouse:
         self.position = start
 
 
-def _config(sensitivity=1.0, deadzone_px=0.0, smoothing=0.0):
+def _config(sensitivity_x=0.025, sensitivity_y=0.05, acceleration=0.0, motion_threshold_px=0.0):
     return AppConfig(
         calibration=CalibrationConfig(
-            x_min=0.3,
-            x_max=0.7,
-            y_min=0.3,
-            y_max=0.7,
-            smoothing=smoothing,
-            deadzone_px=deadzone_px,
-            sensitivity=sensitivity,
+            sensitivity_x=sensitivity_x,
+            sensitivity_y=sensitivity_y,
+            acceleration=acceleration,
+            motion_threshold_px=motion_threshold_px,
         ),
         gestures={},
     )
 
 
-def _metrics(nose_x=0.5, nose_y=0.5):
-    return FaceMetrics(
-        nose_x=nose_x,
-        nose_y=nose_y,
-        ear_a=0.3,
-        ear_b=0.3,
-        mouth_open_ratio=0.1,
-        eyebrow_raise_a=0.05,
-        eyebrow_raise_b=0.05,
-        mouth_shift_ratio=0.0,
-        landmarks=[],
-    )
+def test_accelerate_returns_zero_for_zero_movement():
+    assert accelerate(0.0, 0.5) == 0.0
 
 
-def test_reanchor_sets_state_from_current_os_cursor_position():
-    mouse = FakeMouse(start=(300, 400))
-    controller = MouseController(_config(), (1000, 1000), mouse=mouse)
-
-    controller.reanchor(_metrics(nose_x=0.5, nose_y=0.5))
-
-    assert controller._prev_nose_x == 0.5
-    assert controller._prev_nose_y == 0.5
-    assert controller._target_x == 300
-    assert controller._target_y == 400
-    assert controller._smoothed_x == 300
-    assert controller._smoothed_y == 400
+def test_accelerate_preserves_sign():
+    assert accelerate(-0.05, 0.5) < 0
+    assert accelerate(0.05, 0.5) > 0
 
 
-def test_move_cursor_after_reanchor_applies_scaled_delta_with_no_smoothing():
+def test_accelerate_with_zero_acceleration_is_linear():
+    """|d * 5| ** 0 == 1, so the curve collapses to a pass-through."""
+    assert accelerate(0.037, 0.0) == pytest.approx(0.037)
+
+
+def test_acceleration_damps_small_movements_more_than_large_ones():
+    """The whole point of the curve: fine movements get quieter while big
+    ones stay fast."""
+    small, large = 0.01, 0.2
+
+    small_ratio = accelerate(small, 0.5) / small
+    large_ratio = accelerate(large, 0.5) / large
+
+    assert small_ratio < large_ratio
+
+
+def test_move_cursor_applies_sensitivity_and_screen_scale():
     mouse = FakeMouse(start=(500, 500))
-    controller = MouseController(
-        _config(sensitivity=1.0, deadzone_px=0.0, smoothing=0.0), (1000, 1000), mouse=mouse
-    )
-    controller.reanchor(_metrics(nose_x=0.5, nose_y=0.5))
+    controller = MouseController(_config(acceleration=0.0), (1000, 1000), mouse=mouse)
+    controller.reanchor()
 
-    # scale_x = 1000 / 0.4 = 2500; moving nose by +0.02 -> +50px
-    controller.move_cursor(_metrics(nose_x=0.52, nose_y=0.5))
+    # movement of 4 camera px * 0.025 sensitivity = 0.1 -> 100px of a 1000px screen
+    controller.move_cursor(4.0, 0.0)
 
-    assert mouse.position[0] == pytest.approx(550, abs=1)
+    # negative on x: the preview frame is mirrored
+    assert mouse.position[0] == pytest.approx(400, abs=1)
     assert mouse.position[1] == pytest.approx(500, abs=1)
 
 
-def test_move_cursor_ignores_movement_below_deadzone():
+def test_move_cursor_y_is_not_inverted():
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(_config(acceleration=0.0), (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    controller.move_cursor(0.0, 2.0)  # 2 * 0.05 = 0.1 -> +100px
+
+    assert mouse.position[1] == pytest.approx(600, abs=1)
+
+
+def test_motion_threshold_zeroes_a_small_movement():
     mouse = FakeMouse(start=(500, 500))
     controller = MouseController(
-        _config(sensitivity=1.0, deadzone_px=100.0, smoothing=0.0), (1000, 1000), mouse=mouse
+        _config(acceleration=0.0, motion_threshold_px=50.0), (1000, 1000), mouse=mouse
     )
-    controller.reanchor(_metrics(nose_x=0.5, nose_y=0.5))
+    controller.reanchor()
 
-    # scale_x = 2500; delta 0.001 -> 2.5px, well under the 100px deadzone
-    controller.move_cursor(_metrics(nose_x=0.501, nose_y=0.5))
+    controller.move_cursor(0.4, 0.0)  # 0.4 * 0.025 * 1000 = 10px, under the 50px threshold
 
     assert mouse.position == (500, 500)
 
 
-def test_move_cursor_accumulates_sub_deadzone_movement_across_frames():
+def test_cursor_is_clamped_to_the_screen():
     mouse = FakeMouse(start=(500, 500))
-    controller = MouseController(
-        _config(sensitivity=1.0, deadzone_px=10.0, smoothing=0.0), (1000, 1000), mouse=mouse
-    )
-    controller.reanchor(_metrics(nose_x=0.5, nose_y=0.5))
+    controller = MouseController(_config(acceleration=0.0), (1000, 1000), mouse=mouse)
+    controller.reanchor()
 
-    # scale_x = 2500; each step below is individually under the 10px deadzone
-    controller.move_cursor(_metrics(nose_x=0.501, nose_y=0.5))  # 2.5px from anchor -> no movement yet
-    assert mouse.position == (500, 500)
+    controller.move_cursor(1000.0, 1000.0)
 
-    controller.move_cursor(_metrics(nose_x=0.502, nose_y=0.5))  # still measured from the same anchor -> 5px -> still no movement
-    assert mouse.position == (500, 500)
+    assert 0 <= mouse.position[0] <= 999
+    assert 0 <= mouse.position[1] <= 999
 
-    controller.move_cursor(_metrics(nose_x=0.505, nose_y=0.5))  # 12.5px from the same anchor -> crosses the 10px deadzone
-    assert mouse.position[0] > 500
+
+def test_reanchor_resyncs_to_the_real_os_cursor():
+    mouse = FakeMouse(start=(300, 400))
+    controller = MouseController(_config(), (1000, 1000), mouse=mouse)
+
+    controller.reanchor()
+
+    assert controller._cursor_x == 300
+    assert controller._cursor_y == 400

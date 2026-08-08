@@ -24,6 +24,8 @@ def _engine_with_fakes():
     engine._mouse_controller = MagicMock()
     engine._gesture_engine = MagicMock()
     engine._gesture_engine.evaluate.return_value = []
+    engine._point_tracker = MagicMock()
+    engine._point_tracker.get_movement.return_value = (0.0, 0.0)
     return engine
 
 

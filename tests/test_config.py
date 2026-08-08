@@ -18,13 +18,13 @@ def test_load_config_missing_file_returns_default(tmp_path):
 def test_save_then_load_round_trip(tmp_path):
     path = tmp_path / "config.json"
     original = config_mod.default_config()
-    original.calibration.x_min = 0.1
+    original.calibration.sensitivity_x = 0.04
     original.gestures["mouth_open"].action = "scroll_down"
 
     config_mod.save_config(path, original)
     loaded = config_mod.load_config(path)
 
-    assert loaded.calibration.x_min == 0.1
+    assert loaded.calibration.sensitivity_x == 0.04
     assert loaded.gestures["mouth_open"].action == "scroll_down"
 
 
@@ -57,33 +57,47 @@ def test_load_config_invalid_json_returns_default(tmp_path):
     assert loaded.calibration == config_mod.default_config().calibration
 
 
-def test_default_config_has_deadzone_and_sensitivity_defaults():
-    cfg = config_mod.default_config()
-    assert cfg.calibration.deadzone_px == 4.0
-    assert cfg.calibration.sensitivity == 1.0
+def test_default_config_has_the_tracking_defaults():
+    cal = config_mod.default_config().calibration
+    assert cal.sensitivity_x == 0.025
+    assert cal.sensitivity_y == 0.05
+    assert cal.acceleration == 0.5
+    assert cal.motion_threshold_px == 0.0
 
 
-def test_load_config_partial_file_merges_deadzone_and_sensitivity_with_defaults(tmp_path):
-    path = tmp_path / "config.json"
-    path.write_text(json.dumps({"calibration": {"deadzone_px": 8.0}}))
-
-    loaded = config_mod.load_config(path)
-
-    assert loaded.calibration.deadzone_px == 8.0
-    assert loaded.calibration.sensitivity == config_mod.default_config().calibration.sensitivity
-
-
-def test_save_then_load_round_trip_includes_deadzone_and_sensitivity(tmp_path):
+def test_tracking_fields_round_trip(tmp_path):
     path = tmp_path / "config.json"
     original = config_mod.default_config()
-    original.calibration.deadzone_px = 6.5
-    original.calibration.sensitivity = 1.75
+    original.calibration.sensitivity_x = 0.04
+    original.calibration.acceleration = 0.8
 
     config_mod.save_config(path, original)
     loaded = config_mod.load_config(path)
 
-    assert loaded.calibration.deadzone_px == 6.5
-    assert loaded.calibration.sensitivity == 1.75
+    assert loaded.calibration.sensitivity_x == 0.04
+    assert loaded.calibration.acceleration == 0.8
+
+
+def test_legacy_calibration_keys_are_ignored_and_gestures_survive(tmp_path):
+    """A config from before the optical-flow switch has four-point bounds
+    that have no sensitivity equivalent. They are dropped; the defaults
+    apply; the user's gesture mappings must still migrate."""
+    path = tmp_path / "config.json"
+    path.write_text(
+        json.dumps(
+            {
+                "calibration": {"x_min": 0.4, "x_max": 0.6, "smoothing": 0.7, "deadzone_px": 15.0},
+                "gestures": {"blink_left": {"action": "scroll_up"}},
+            }
+        )
+    )
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.calibration.sensitivity_x == 0.025
+    assert loaded.calibration.motion_threshold_px == 0.0
+    assert not hasattr(loaded.calibration, "x_min")
+    assert loaded.gestures["blink_a"].action == "scroll_up"
 
 
 def test_default_config_has_the_nine_gestures():

@@ -78,13 +78,13 @@ DEFAULT_HOLD_MS = {name: 400 for name in GESTURE_NAMES}
 
 @dataclass
 class CalibrationConfig:
-    x_min: float = 0.35
-    x_max: float = 0.65
-    y_min: float = 0.35
-    y_max: float = 0.65
-    smoothing: float = 0.7  # weight kept from the previous smoothed sample
-    deadzone_px: float = 4.0  # ignore scaled movement below this many screen pixels
-    sensitivity: float = 1.0  # multiplier on the calibration-derived cursor scale
+    """Cursor tuning. Defaults are tracky-mouse's shipped values; vertical
+    sensitivity is twice horizontal because heads travel less vertically."""
+
+    sensitivity_x: float = 0.025
+    sensitivity_y: float = 0.05
+    acceleration: float = 0.5  # 0 = linear; higher damps small movements harder
+    motion_threshold_px: float = 0.0  # cursor movement below this is dropped
 
 
 @dataclass
@@ -147,15 +147,18 @@ def load_config(path: str | Path) -> AppConfig:
         return default_config()
 
     default = default_config()
+    # Pre-optical-flow keys (x_min, x_max, y_min, y_max, smoothing,
+    # deadzone_px, sensitivity) are simply not read here, so they fall away
+    # on the next save. No migration is attempted: four-point calibration
+    # bounds have no sensitivity equivalent to convert to.
     raw_cal = raw.get("calibration", {})
     calibration = CalibrationConfig(
-        x_min=float(raw_cal.get("x_min", default.calibration.x_min)),
-        x_max=float(raw_cal.get("x_max", default.calibration.x_max)),
-        y_min=float(raw_cal.get("y_min", default.calibration.y_min)),
-        y_max=float(raw_cal.get("y_max", default.calibration.y_max)),
-        smoothing=float(raw_cal.get("smoothing", default.calibration.smoothing)),
-        deadzone_px=float(raw_cal.get("deadzone_px", default.calibration.deadzone_px)),
-        sensitivity=float(raw_cal.get("sensitivity", default.calibration.sensitivity)),
+        sensitivity_x=float(raw_cal.get("sensitivity_x", default.calibration.sensitivity_x)),
+        sensitivity_y=float(raw_cal.get("sensitivity_y", default.calibration.sensitivity_y)),
+        acceleration=float(raw_cal.get("acceleration", default.calibration.acceleration)),
+        motion_threshold_px=float(
+            raw_cal.get("motion_threshold_px", default.calibration.motion_threshold_px)
+        ),
     )
 
     raw_gestures = dict(raw.get("gestures", {}))

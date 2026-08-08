@@ -107,27 +107,29 @@ class CalibrationPanel:
         ).grid(row=row, column=0, sticky="ew", pady=(6, 12))
         row += 1
 
-        self.deadzone_var = ctk.DoubleVar(value=self._config.calibration.deadzone_px)
-        self._deadzone_label = self._slider_row(
+        self.motion_threshold_var = ctk.DoubleVar(
+            value=self._config.calibration.motion_threshold_px
+        )
+        self._motion_threshold_label = self._slider_row(
             row,
             "Zona morta (ignora tremores pequenos)",
-            self.deadzone_var,
+            self.motion_threshold_var,
             0,
-            15,
-            self._deadzone_text(),
-            lambda _value=None: self.on_deadzone_change(),
+            10,
+            self._motion_threshold_text(),
+            lambda _value=None: self.on_motion_threshold_change(),
         )
         row += 2
 
-        self.sensitivity_var = ctk.DoubleVar(value=self._config.calibration.sensitivity)
-        self._sensitivity_label = self._slider_row(
+        self.sensitivity_x_var = ctk.DoubleVar(value=self._config.calibration.sensitivity_x)
+        self._sensitivity_x_label = self._slider_row(
             row,
             "Sensibilidade (velocidade do cursor)",
-            self.sensitivity_var,
-            0.3,
-            3.0,
-            self._sensitivity_text(),
-            lambda _value=None: self.on_sensitivity_change(),
+            self.sensitivity_x_var,
+            0.005,
+            0.10,
+            self._sensitivity_x_text(),
+            lambda _value=None: self.on_sensitivity_x_change(),
         )
 
     def _slider_row(self, row, title, variable, low, high, value_text, command):
@@ -146,26 +148,37 @@ class CalibrationPanel:
 
     # -- text helpers ---------------------------------------------------
     def _status_text(self) -> str:
+        # x_min/x_max/y_min/y_max are no longer fields on CalibrationConfig
+        # (the config schema moved to sensitivity-based tuning), but the
+        # capture buttons below still write them as ad-hoc attributes until
+        # Task 3 rebuilds this panel. getattr keeps this readable before any
+        # capture has run this session.
         cal = self._config.calibration
+        x_min = getattr(cal, "x_min", None)
+        x_max = getattr(cal, "x_max", None)
+        y_min = getattr(cal, "y_min", None)
+        y_max = getattr(cal, "y_max", None)
+        if None in (x_min, x_max, y_min, y_max):
+            return "Faixa gravada -- ainda não capturada nesta sessão"
         return (
-            f"Faixa gravada -- x: [{cal.x_min:.2f}, {cal.x_max:.2f}]   "
-            f"y: [{cal.y_min:.2f}, {cal.y_max:.2f}]"
+            f"Faixa gravada -- x: [{x_min:.2f}, {x_max:.2f}]   "
+            f"y: [{y_min:.2f}, {y_max:.2f}]"
         )
 
-    def _deadzone_text(self) -> str:
-        return f"{self._config.calibration.deadzone_px:.0f} px"
+    def _motion_threshold_text(self) -> str:
+        return f"{self._config.calibration.motion_threshold_px:.0f} px"
 
-    def _sensitivity_text(self) -> str:
-        return f"{self._config.calibration.sensitivity:.1f}x"
+    def _sensitivity_x_text(self) -> str:
+        return f"{self._config.calibration.sensitivity_x:.3f}"
 
     # -- slider callbacks -----------------------------------------------
-    def on_deadzone_change(self) -> None:
-        self._config.calibration.deadzone_px = round(self.deadzone_var.get(), 1)
-        self._deadzone_label.configure(text=self._deadzone_text())
+    def on_motion_threshold_change(self) -> None:
+        self._config.calibration.motion_threshold_px = round(self.motion_threshold_var.get(), 1)
+        self._motion_threshold_label.configure(text=self._motion_threshold_text())
 
-    def on_sensitivity_change(self) -> None:
-        self._config.calibration.sensitivity = round(self.sensitivity_var.get(), 2)
-        self._sensitivity_label.configure(text=self._sensitivity_text())
+    def on_sensitivity_x_change(self) -> None:
+        self._config.calibration.sensitivity_x = round(self.sensitivity_x_var.get(), 3)
+        self._sensitivity_x_label.configure(text=self._sensitivity_x_text())
 
     # -- capture --------------------------------------------------------
     def toggle_capture(self, direction: str) -> None:
