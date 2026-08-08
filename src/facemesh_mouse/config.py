@@ -85,6 +85,8 @@ class CalibrationConfig:
     sensitivity_y: float = 0.05
     acceleration: float = 0.5  # 0 = linear; higher damps small movements harder
     motion_threshold_px: float = 0.0  # cursor movement below this is dropped
+    yield_resume_after_s: float = 3.0  # quiet period before resuming after a physical-mouse touch
+    click_logging_enabled: bool = True  # record fired actions to clicks.log
 
 
 # Accepted range per tuning field, matching the GUI sliders. Values are
@@ -96,6 +98,7 @@ CALIBRATION_RANGES = {
     "sensitivity_y": (0.005, 0.10),
     "acceleration": (0.0, 1.0),
     "motion_threshold_px": (0.0, 10.0),
+    "yield_resume_after_s": (1.0, 10.0),
 }
 
 
@@ -173,6 +176,11 @@ def load_config(path: str | Path) -> AppConfig:
     # on the next save. No migration is attempted: four-point calibration
     # bounds have no sensitivity equivalent to convert to.
     raw_cal = raw.get("calibration", {})
+    click_logging_enabled = raw_cal.get(
+        "click_logging_enabled", default.calibration.click_logging_enabled
+    )
+    if not isinstance(click_logging_enabled, bool):
+        click_logging_enabled = default.calibration.click_logging_enabled
     calibration = CalibrationConfig(
         sensitivity_x=_clamped(raw_cal, "sensitivity_x", default.calibration.sensitivity_x),
         sensitivity_y=_clamped(raw_cal, "sensitivity_y", default.calibration.sensitivity_y),
@@ -180,6 +188,10 @@ def load_config(path: str | Path) -> AppConfig:
         motion_threshold_px=_clamped(
             raw_cal, "motion_threshold_px", default.calibration.motion_threshold_px
         ),
+        yield_resume_after_s=_clamped(
+            raw_cal, "yield_resume_after_s", default.calibration.yield_resume_after_s
+        ),
+        click_logging_enabled=click_logging_enabled,
     )
 
     raw_gestures = dict(raw.get("gestures", {}))

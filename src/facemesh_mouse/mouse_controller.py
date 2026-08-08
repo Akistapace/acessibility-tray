@@ -13,6 +13,8 @@ mouse.
 from __future__ import annotations
 
 import math
+import time
+from typing import Callable
 
 from pynput.mouse import Button, Controller
 
@@ -27,6 +29,11 @@ _ACTIONS = {
     "none": lambda m: None,
 }
 
+# OS cursor-position rounding tolerance: a divergence beyond this from the
+# position this controller last wrote means something else -- the physical
+# mouse -- moved the cursor.
+YIELD_DETECT_PX = 2
+
 
 def clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -40,32 +47,66 @@ def accelerate(delta: float, acceleration: float) -> float:
 
 
 class MouseController:
-    def __init__(self, config: AppConfig, screen_size: tuple[int, int], mouse=None) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        screen_size: tuple[int, int],
+        mouse=None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
         self._config = config
         self._screen_w, self._screen_h = screen_size
         self._mouse = mouse if mouse is not None else Controller()
+        self._clock = clock
         self._cursor_x: float | None = None
         self._cursor_y: float | None = None
+        self.yielded = False
+        self._yield_started_at: float | None = None
+        self._last_seen_x: float | None = None
+        self._last_seen_y: float | None = None
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
 
     def reanchor(self) -> None:
         """Resyncs to the real OS cursor position, so a cursor moved by a
-        physical mouse while paused is not fought on resume."""
+        physical mouse (while paused, or while yielded) is not fought."""
         cur_x, cur_y = self._mouse.position
         self._cursor_x = float(cur_x)
         self._cursor_y = float(cur_y)
+        self._last_seen_x = float(cur_x)
+        self._last_seen_y = float(cur_y)
+        self.yielded = False
+        self._yield_started_at = None
 
     def move_cursor(self, movement_x: float, movement_y: float) -> None:
         """Applies one frame of averaged point movement, in camera pixels."""
+        if self._cursor_x is None:
+            return  # not yet reanchored -- nothing to compare or move from
+
+        cur_x, cur_y = self._mouse.position
+
+        if self.yielded:
+            self._update_yield_timer(cur_x, cur_y)
+            return
+
+        if (
+            abs(cur_x - self._cursor_x) > YIELD_DETECT_PX
+            or abs(cur_y - self._cursor_y) > YIELD_DETECT_PX
+        ):
+            # Something other than this controller moved the cursor -- the
+            # physical mouse. Stop fighting it.
+            self.yielded = True
+            self._yield_started_at = self._clock()
+            self._last_seen_x, self._last_seen_y = float(cur_x), float(cur_y)
+            return
+
         if not (math.isfinite(movement_x) and math.isfinite(movement_y)):
             # clamp() would turn a NaN into the screen edge rather than
             # rejecting it, teleporting the cursor. Drop the frame instead.
             return
 
         cal = self._config.calibration
-
         delta_x = accelerate(movement_x * cal.sensitivity_x, cal.acceleration)
         delta_y = accelerate(movement_y * cal.sensitivity_y, cal.acceleration)
 
@@ -86,6 +127,19 @@ class MouseController:
             self._cursor_y + delta_y * self._screen_h, 0, self._screen_h - 1
         )
         self._mouse.position = (int(self._cursor_x), int(self._cursor_y))
+
+    def _update_yield_timer(self, cur_x: int, cur_y: int) -> None:
+        if (
+            abs(cur_x - self._last_seen_x) > YIELD_DETECT_PX
+            or abs(cur_y - self._last_seen_y) > YIELD_DETECT_PX
+        ):
+            # Still moving -- keep pushing the resume deadline out.
+            self._yield_started_at = self._clock()
+        self._last_seen_x, self._last_seen_y = float(cur_x), float(cur_y)
+
+        quiet_for = self._clock() - self._yield_started_at
+        if quiet_for >= self._config.calibration.yield_resume_after_s:
+            self.reanchor()
 
     def fire_action(self, gesture_name: str) -> None:
         action = self._config.gestures[gesture_name].action

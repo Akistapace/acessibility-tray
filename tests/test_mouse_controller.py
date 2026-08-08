@@ -9,16 +9,31 @@ class FakeMouse:
         self.position = start
 
 
-def _config(sensitivity_x=0.025, sensitivity_y=0.05, acceleration=0.0, motion_threshold_px=0.0):
+def _config(
+    sensitivity_x=0.025,
+    sensitivity_y=0.05,
+    acceleration=0.0,
+    motion_threshold_px=0.0,
+    yield_resume_after_s=3.0,
+):
     return AppConfig(
         calibration=CalibrationConfig(
             sensitivity_x=sensitivity_x,
             sensitivity_y=sensitivity_y,
             acceleration=acceleration,
             motion_threshold_px=motion_threshold_px,
+            yield_resume_after_s=yield_resume_after_s,
         ),
         gestures={},
     )
+
+
+class FakeClock:
+    def __init__(self, t=0.0):
+        self.t = t
+
+    def __call__(self):
+        return self.t
 
 
 def test_accelerate_returns_zero_for_zero_movement():
@@ -137,3 +152,86 @@ def test_reanchor_resyncs_to_the_real_os_cursor():
 
     assert controller._cursor_x == 300
     assert controller._cursor_y == 400
+
+
+def test_move_cursor_yields_when_the_cursor_diverges_from_the_last_write():
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(_config(acceleration=0.0), (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    mouse.position = (700, 500)  # simulate a physical-mouse touch
+    controller.move_cursor(4.0, 0.0)
+
+    assert controller.yielded is True
+    assert mouse.position == (700, 500)  # untouched by tracked movement
+
+
+def test_yielded_cursor_ignores_tracked_movement_until_the_quiet_period_elapses():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(acceleration=0.0, yield_resume_after_s=3.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    mouse.position = (700, 500)
+    controller.move_cursor(4.0, 0.0)  # enters yielded at t=0
+    assert controller.yielded is True
+
+    clock.t = 2.9
+    controller.move_cursor(4.0, 0.0)  # still within the quiet period
+    assert controller.yielded is True
+    assert mouse.position == (700, 500)
+
+    clock.t = 3.1
+    controller.move_cursor(4.0, 0.0)  # quiet period elapsed -> resumes
+    assert controller.yielded is False
+
+
+def test_continued_physical_movement_keeps_resetting_the_quiet_timer():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(acceleration=0.0, yield_resume_after_s=3.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    mouse.position = (700, 500)
+    controller.move_cursor(0.0, 0.0)  # enters yielded at t=0
+
+    clock.t = 2.9
+    mouse.position = (750, 500)  # the user is still moving the physical mouse
+    controller.move_cursor(0.0, 0.0)
+
+    clock.t = 5.0  # 2.1s since the last movement -- well under the 3s quiet period
+    controller.move_cursor(0.0, 0.0)
+    assert controller.yielded is True
+
+
+def test_resuming_from_yield_reanchors_with_no_jump():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(acceleration=0.0, yield_resume_after_s=3.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    mouse.position = (700, 500)
+    controller.move_cursor(0.0, 0.0)
+
+    clock.t = 3.1
+    controller.move_cursor(0.0, 0.0)
+
+    assert mouse.position == (700, 500)  # resume must not move the cursor
+    assert controller._cursor_x == 700
+
+
+def test_small_cursor_drift_is_not_mistaken_for_a_physical_move():
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(_config(acceleration=0.0), (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    mouse.position = (501, 500)  # within YIELD_DETECT_PX
+    controller.move_cursor(4.0, 0.0)
+
+    assert controller.yielded is False

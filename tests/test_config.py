@@ -189,3 +189,37 @@ def test_non_numeric_calibration_value_falls_back_to_the_default(tmp_path):
     path.write_text(json.dumps({"calibration": {"acceleration": "fast"}}))
 
     assert config_mod.load_config(path).calibration.acceleration == 0.5
+
+
+def test_default_config_has_the_yield_and_logging_defaults():
+    cal = config_mod.default_config().calibration
+    assert cal.yield_resume_after_s == 3.0
+    assert cal.click_logging_enabled is True
+
+
+def test_yield_resume_after_s_round_trips_and_is_clamped(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.yield_resume_after_s = 5.5
+    config_mod.save_config(path, original)
+
+    assert config_mod.load_config(path).calibration.yield_resume_after_s == 5.5
+
+    path.write_text(json.dumps({"calibration": {"yield_resume_after_s": 999}}))
+    assert config_mod.load_config(path).calibration.yield_resume_after_s == 10.0
+
+
+def test_click_logging_enabled_round_trips(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.click_logging_enabled = False
+    config_mod.save_config(path, original)
+
+    assert config_mod.load_config(path).calibration.click_logging_enabled is False
+
+
+def test_non_bool_click_logging_value_falls_back_to_the_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"click_logging_enabled": "nope"}}))
+
+    assert config_mod.load_config(path).calibration.click_logging_enabled is True
