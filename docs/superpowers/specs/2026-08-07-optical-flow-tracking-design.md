@@ -76,6 +76,24 @@ tracky-mouse's parameters: `winSize=(20, 20)`, `maxLevel=3`, and
 `current - previous` across surviving points, in camera pixels, or
 `(0.0, 0.0)` when no points survive.
 
+**Pruning must run before the movement is read, every frame.** This
+ordering is load-bearing, not incidental. A trial run of
+`cv2.calcOpticalFlowPyrLK` on a synthetic translated image showed two of
+three points recovering the true `(7, -4)` translation exactly while the
+third diverged to `(-50, +73)` — and optical flow reported `status == 1`
+for that point anyway. Its lost-point flag cannot be trusted on its own.
+That single outlier dragged the mean of three points to `(-12, +22)`,
+i.e. the wrong direction on both axes. The region cull is what catches it:
+the diverged point landed ~188 px from the nose against a ~60 px head
+size, far outside the ellipse. Reading movement before culling, or
+dropping the cull as redundant with `status`, reintroduces exactly the
+jitter this port exists to remove.
+
+The mean is outlier-sensitive by construction; the pipeline's answer is
+to remove outliers before averaging (status filter, then grid
+de-duplication, then region cull) and to track enough points that any
+survivor's influence is small.
+
 ### Cursor mapping (`mouse_controller.py`)
 
 Per active frame:
