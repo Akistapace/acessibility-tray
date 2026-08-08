@@ -19,6 +19,8 @@ _logger = logging.getLogger("facemesh_mouse.clicks")
 _logger.setLevel(logging.INFO)
 _logger.propagate = False
 
+_enabled = False
+
 
 def enable(
     path: str | Path = LOG_PATH,
@@ -27,19 +29,23 @@ def enable(
 ) -> None:
     """Attaches the rotating file handler. Safe to call more than once --
     a second call is a no-op, so it never doubles up handlers."""
-    if any(isinstance(h, logging.handlers.RotatingFileHandler) for h in _logger.handlers):
+    global _enabled
+    if _enabled:
         return
     handler = logging.handlers.RotatingFileHandler(
         path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
     )
     handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
     _logger.addHandler(handler)
+    _enabled = True
 
 
 def disable() -> None:
+    global _enabled
     for handler in list(_logger.handlers):
         _logger.removeHandler(handler)
         handler.close()
+    _enabled = False
 
 
 def _foreground_window_title() -> str:
@@ -61,7 +67,7 @@ def record(
     position: tuple[int, int],
     window_title_fn: Callable[[], str] = _foreground_window_title,
 ) -> None:
-    if not _logger.handlers:
+    if not _enabled:
         return
     title = window_title_fn() or "?"
     _logger.info(
