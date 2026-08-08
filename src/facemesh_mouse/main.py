@@ -7,6 +7,8 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
+from . import click_feedback
+from . import click_log
 from . import config as config_mod
 from . import single_instance
 from .config_gui import ConfigWindow, create_root
@@ -39,6 +41,13 @@ def _make_process_dpi_aware() -> None:
             pass
 
 
+def _sync_click_logging(config) -> None:
+    if config.calibration.click_logging_enabled:
+        click_log.enable()
+    else:
+        click_log.disable()
+
+
 def main() -> None:
     _make_process_dpi_aware()
     _config_window_opener = None
@@ -52,7 +61,13 @@ def main() -> None:
         sys.exit(0)
 
     app_config = config_mod.load_config(CONFIG_PATH)
-    engine = Engine(app_config)
+    _sync_click_logging(app_config)
+
+    def _on_action(gesture_name: str, action: str, position: tuple[int, int]) -> None:
+        root.after(0, click_feedback.show_pulse, root, position[0], position[1])
+        click_log.record(gesture_name, action, position)
+
+    engine = Engine(app_config, on_action=_on_action)
 
     if not engine.open_camera():
         root = tk.Tk()
@@ -119,6 +134,7 @@ def main() -> None:
 def _make_on_start(engine: Engine):
     def on_start(new_config) -> None:
         engine.update_config(new_config)
+        _sync_click_logging(new_config)
         engine.control_enabled.set()
 
     return on_start

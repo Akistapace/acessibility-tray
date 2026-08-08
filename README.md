@@ -14,10 +14,13 @@ atalhos globais.
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
 (design original, com os cinco gestos v1 e sem `hold_ms`),
 [docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md](docs/superpowers/specs/2026-08-07-gesture-expansion-modern-ui-design.md)
-(nove gestos, tempo de espera e a UI atual em abas) e
+(nove gestos, tempo de espera e a UI atual em abas),
 [docs/superpowers/specs/2026-08-07-optical-flow-tracking-design.md](docs/superpowers/specs/2026-08-07-optical-flow-tracking-design.md)
 (cursor relativo por optical flow, sliders de sensibilidade/aceleração no
-lugar da calibração de quatro pontos) para o design completo.
+lugar da calibração de quatro pontos) e
+[docs/superpowers/specs/2026-08-07-mouse-yield-and-click-feedback-design.md](docs/superpowers/specs/2026-08-07-mouse-yield-and-click-feedback-design.md)
+(ceder controle ao mouse físico, pulso visual de clique e log local) para o
+design completo.
 
 ## Requisitos
 
@@ -73,12 +76,27 @@ pausa e congela o cursor a qualquer momento — use pra "levantar o mouse",
 reposicionar a cabeça numa posição mais confortável, e retomar exatamente de
 onde parou, sem pular.
 
+Se você mexer no mouse físico ou no trackpad enquanto o controle pela cabeça
+está ativo, o app cede o controle na hora: o cursor obedece o mouse físico e
+a cabeça é ignorada até você parar de mexer por alguns segundos (padrão 3s,
+ajustável em Movimento). O ícone da bandeja fica azul enquanto isso.
+
 Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair. Clique com o botão
 esquerdo no ícone também reabre a config direto; botão direito mostra o
 menu completo.
 Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
-Config salvo em `config.json` na raiz do projeto (ignorado pelo git).
+Cada clique disparado por gesto mostra um pulso azul na posição do cursor,
+pra confirmar visualmente que o clique aconteceu — útil porque piscar ou
+levantar a sobrancelha não tem o retorno tátil de um clique físico.
+
+Todo clique também fica registrado em `clicks.log` (data, gesto, ação,
+posição e a janela em foco), rotacionado automaticamente pra não crescer
+sem limite; nunca é enviado pra lugar nenhum, e pode ser desligado na aba
+Movimento.
+
+Config salvo em `config.json` e histórico de cliques em `clicks.log`,
+ambos na raiz do projeto (ignorados pelo git).
 
 ## Testes
 
@@ -87,8 +105,9 @@ Config salvo em `config.json` na raiz do projeto (ignorado pelo git).
 ```
 
 Cobre a lógica pura (motor de gestos, poda de pontos e curva de aceleração,
-load/save de config) sem precisar de câmera real. Câmera, mouse, bandeja e
-atalhos exigem checklist manual (ver spec).
+cessão de controle ao mouse físico, log de cliques, load/save de config)
+sem precisar de câmera real. Câmera, bandeja, atalhos e a aparência visual
+do pulso exigem checklist manual (ver spec).
 
 ## Build do executável (.exe)
 

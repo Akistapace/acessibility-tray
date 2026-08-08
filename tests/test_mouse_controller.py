@@ -362,3 +362,38 @@ def test_reanchor_resets_a_stale_dwell_timer():
     clock.t = 5.9  # under 1s since the restart
     controller.evaluate_dwell()
     assert mouse.clicks == []
+
+
+from facemesh_mouse.config import GestureConfig
+
+
+def test_fire_action_invokes_on_action_callback():
+    mouse = FakeMouse()
+    calls = []
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_click")},
+    )
+    controller = MouseController(
+        config, (1000, 1000), mouse=mouse, on_action=lambda *args: calls.append(args)
+    )
+
+    controller.fire_action("blink_a")
+
+    assert calls == [("blink_a", "left_click", mouse.position)]
+
+
+def test_fire_action_does_not_invoke_on_action_for_none():
+    mouse = FakeMouse()
+    calls = []
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="none")},
+    )
+    controller = MouseController(
+        config, (1000, 1000), mouse=mouse, on_action=lambda *args: calls.append(args)
+    )
+
+    controller.fire_action("blink_a")
+
+    assert calls == []

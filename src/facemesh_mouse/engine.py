@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import threading
 import time
+from typing import Callable
 
 import cv2
 
@@ -66,13 +67,19 @@ class Engine:
     """Runs camera capture + tracking forever; drives the mouse only while
     `control_enabled` is set and `paused` is clear."""
 
-    def __init__(self, config: AppConfig, camera_index: int = 0) -> None:
+    def __init__(
+        self,
+        config: AppConfig,
+        camera_index: int = 0,
+        on_action: Callable[[str, str, tuple[int, int]], None] | None = None,
+    ) -> None:
         self.state = SharedState()
         self.control_enabled = threading.Event()  # set = GUI hidden, control live
         self.paused = threading.Event()  # set = user paused via tray/hotkey
         self.no_face = threading.Event()
 
         self._config = config
+        self._on_action = on_action
         self._stop = threading.Event()
         self._thread: threading.Thread | None = None
 
@@ -103,7 +110,9 @@ class Engine:
 
     def start(self, screen_size: tuple[int, int]) -> None:
         self._tracker = FaceTracker()
-        self._mouse_controller = MouseController(self._config, screen_size)
+        self._mouse_controller = MouseController(
+            self._config, screen_size, on_action=self._on_action
+        )
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._thread.start()
 

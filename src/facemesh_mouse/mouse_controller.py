@@ -67,11 +67,13 @@ class MouseController:
         screen_size: tuple[int, int],
         mouse=None,
         clock: Callable[[], float] = time.monotonic,
+        on_action: Callable[[str, str, tuple[int, int]], None] | None = None,
     ) -> None:
         self._config = config
         self._screen_w, self._screen_h = screen_size
         self._mouse = mouse if mouse is not None else Controller()
         self._clock = clock
+        self._on_action = on_action
         self._cursor_x: float | None = None
         self._cursor_y: float | None = None
         self.yielded = False
@@ -200,4 +202,6 @@ class MouseController:
 
     def fire_action(self, gesture_name: str) -> None:
         action = self._config.gestures[gesture_name].action
+        if action != "none" and self._on_action is not None:
+            self._on_action(gesture_name, action, self._mouse.position)
         _ACTIONS[action](self._mouse)

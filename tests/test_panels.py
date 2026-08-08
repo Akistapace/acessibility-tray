@@ -42,7 +42,27 @@ def test_calibration_panel_has_a_slider_per_tuning_field(container):
         "acceleration",
         "motion_threshold_px",
         "dwell_time_s",
+        "yield_resume_after_s",
     }
+
+
+def test_click_logging_switch_writes_into_the_config(container):
+    config = default_config()
+    panel = CalibrationPanel(container, config)
+
+    panel._click_logging_var.set(False)
+    panel.apply_to_config()
+
+    assert config.calibration.click_logging_enabled is False
+
+
+def test_click_logging_switch_starts_from_the_configs_value(container):
+    config = default_config()
+    config.calibration.click_logging_enabled = False
+
+    panel = CalibrationPanel(container, config)
+
+    assert panel._click_logging_var.get() is False
 
 
 def test_sliders_write_their_field_into_the_config(container):

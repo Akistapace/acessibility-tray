@@ -44,6 +44,13 @@ SLIDER_SPECS: dict[str, tuple[str, float, float, str]] = {
         "Ignora movimentos menores que isso, em pixels. Ajuda o cursor a "
         "parar completamente.",
     ),
+    "yield_resume_after_s": (
+        "Retomar após usar o mouse físico",
+        1.0,
+        10.0,
+        "Depois de tocar no mouse ou trackpad, esse é o tempo parado que o "
+        "app espera antes de a cabeça voltar a controlar o cursor.",
+    ),
 }
 
 # Per-field live-value formatting for the label next to each slider.
@@ -53,6 +60,7 @@ _VALUE_FORMATS = {
     "acceleration": lambda value: f"{value:.2f}",
     "motion_threshold_px": lambda value: f"{value:.1f} px",
     "dwell_time_s": lambda value: f"{value:.1f} s",
+    "yield_resume_after_s": lambda value: f"{value:.1f} s",
 }
 
 # Range for the dwell-click time slider, matching CALIBRATION_RANGES in
@@ -67,6 +75,7 @@ class CalibrationPanel:
         self.sliders: dict[str, ctk.CTkSlider] = {}
         self._value_labels: dict[str, ctk.CTkLabel] = {}
         self.dwell_switch: ctk.CTkSwitch | None = None
+        self._click_logging_var: ctk.BooleanVar | None = None
 
         self.frame = ctk.CTkFrame(parent, fg_color="transparent")
         self._build()
@@ -77,7 +86,8 @@ class CalibrationPanel:
         row = 0
         for field, (label, low, high, description) in SLIDER_SPECS.items():
             row = self._build_row(row, field, label, low, high, description)
-        self._build_dwell_row(row)
+        row = self._build_dwell_row(row)
+        self._build_click_logging_switch(row)
 
     def _build_row(
         self, row: int, field: str, label: str, low: float, high: float, description: str
@@ -151,6 +161,26 @@ class CalibrationPanel:
             "Quanto tempo o cursor precisa ficar parado antes do clique automático.",
         )
 
+    def _build_click_logging_switch(self, row: int) -> None:
+        self._click_logging_var = ctk.BooleanVar(
+            value=self._config.calibration.click_logging_enabled
+        )
+        ctk.CTkSwitch(
+            self.frame,
+            text="Registrar cliques em clicks.log",
+            variable=self._click_logging_var,
+        ).grid(row=row, column=0, sticky="w", pady=(14, 2))
+        row += 1
+        ctk.CTkLabel(
+            self.frame,
+            text="Guarda um histórico local do que foi clicado: gesto, ação, "
+            "posição e a janela em foco. Nunca é enviado para lugar nenhum.",
+            justify="left",
+            wraplength=380,
+            anchor="w",
+            text_color="gray70",
+        ).grid(row=row, column=0, sticky="ew", pady=(0, 4))
+
     # -- config sync ------------------------------------------------------
     def apply_to_config(self) -> None:
         cal = self._config.calibration
@@ -160,6 +190,8 @@ class CalibrationPanel:
         cal.motion_threshold_px = round(self.sliders["motion_threshold_px"].get(), 1)
         cal.dwell_time_s = round(self.sliders["dwell_time_s"].get(), 1)
         cal.dwell_click_enabled = bool(self.dwell_switch.get())
+        cal.yield_resume_after_s = round(self.sliders["yield_resume_after_s"].get(), 1)
+        cal.click_logging_enabled = bool(self._click_logging_var.get())
 
     # -- per-frame ------------------------------------------------------
     def update(self, metrics: FaceMetrics) -> None:
