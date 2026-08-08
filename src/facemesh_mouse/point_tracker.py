@@ -18,17 +18,21 @@ import numpy as np
 PRUNING_GRID = 5.0
 
 # A candidate is skipped if an existing point is already within this
-# distance on either axis. Established points already carry motion history,
-# so they are preferred over fresh ones.
+# distance on BOTH axes, i.e. genuinely nearby. Established points already
+# carry motion history, so they are preferred over fresh ones.
 MIN_DISTANCE_TO_ADD = PRUNING_GRID * 1.5
 
-# The cull region is an ellipse wider than it is tall, matching a face.
+# The cull region is an ellipse taller than it is wide: the x term is
+# multiplied by the stretch, so the horizontal reach is head_size / 1.4.
 REGION_X_STRETCH = 1.4
 
 _LK_PARAMS = dict(
     winSize=(20, 20),
     maxLevel=3,
     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01),
+    # Upstream's value. OpenCV defaults to 1e-4, ten times looser, which
+    # admits low-texture tracks that wander.
+    minEigThreshold=0.001,
 )
 
 
@@ -70,14 +74,17 @@ def prune_points(points, prev_points, status, nose, head_size):
 
 def should_add_point(candidate, points) -> bool:
     """Whether a candidate is far enough from every tracked point to be
-    worth adding, comparing each axis separately (the grid pruning makes
-    Euclidean distance pointless here)."""
+    worth adding. A candidate is only skipped when an existing point is
+    close on BOTH axes -- i.e. genuinely nearby. Rejecting on either axis
+    alone would throw away symmetric features, which share a coordinate:
+    the two nostrils sit at the same height, the midline points share an x.
+    """
     points = np.asarray(points, dtype=np.float32).reshape(-1, 2)
     if not len(points):
         return True
     close_x = np.abs(points[:, 0] - candidate[0]) <= MIN_DISTANCE_TO_ADD
     close_y = np.abs(points[:, 1] - candidate[1]) <= MIN_DISTANCE_TO_ADD
-    return not bool(np.any(close_x | close_y))
+    return not bool(np.any(close_x & close_y))
 
 
 def mean_movement(points, prev_points) -> tuple[float, float]:
@@ -98,6 +105,7 @@ class PointTracker:
         self._prev_gray = None
         self._points = _empty()
         self._prev_points = _empty()
+        self._movement = (0.0, 0.0)
 
     @property
     def point_count(self) -> int:
@@ -105,10 +113,12 @@ class PointTracker:
 
     def reset(self) -> None:
         """Drops every point and the previous frame, so the next update
-        starts fresh. Used when control resumes or the face is lost."""
+        starts fresh. Called when the face is lost or a camera read fails --
+        either way the next frame has no valid reference to compare against."""
         self._prev_gray = None
         self._points = _empty()
         self._prev_points = _empty()
+        self._movement = (0.0, 0.0)
 
     def update(self, gray, nose, head_size, candidates) -> None:
         if self._prev_gray is not None and len(self._points):
@@ -123,6 +133,11 @@ class PointTracker:
         else:
             self._prev_points = self._points.copy()
 
+        # Measured before seeding: a point added this frame has no movement
+        # to report, and averaging its zero in would understate the frame by
+        # 1/N -- which shows up as intermittent cursor-speed dips.
+        self._movement = mean_movement(self._points, self._prev_points)
+
         for candidate in candidates:
             if should_add_point(candidate, self._points):
                 self._points = np.vstack(
@@ -135,4 +150,5 @@ class PointTracker:
         self._prev_gray = gray
 
     def get_movement(self) -> tuple[float, float]:
-        return mean_movement(self._points, self._prev_points)
+        """The movement measured by the last `update`, in camera pixels."""
+        return self._movement

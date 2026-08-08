@@ -18,9 +18,14 @@ from .mouse_controller import MouseController
 from .point_tracker import PointTracker
 from .tracker import EYE_OUTER_A, EYE_OUTER_B, FaceMetrics, FaceTracker
 
-# Landmarks seeded as tracking points, following tracky-mouse: the two
-# nostrils and the midpoint between the eyes.
-_SEED_LANDMARKS = (98, 327, 168)
+# Landmarks seeded as tracking points: nose bridge and tip, nostrils,
+# temples and cheek edges. Averaging more points cancels more tracking
+# noise, and the grid pruning collapses any that converge.
+#
+# Rigid features only -- deliberately no mouth, eyebrow or eyelid points.
+# Those move when the user performs a gesture, which would jerk the cursor
+# at the exact moment they are trying to click.
+_SEED_LANDMARKS = (98, 327, 168, 6, 197, 195, 5, 4, 234, 454, 127, 356, 122, 351)
 
 
 def _seed_candidates(metrics: FaceMetrics, width: int, height: int) -> list[tuple[float, float]]:
@@ -97,29 +102,45 @@ class Engine:
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            ok, frame = self._camera.read()
-            if not ok:
-                time.sleep(0.05)
-                continue
-
-            frame, metrics = self._tracker.process(frame)
-            self.state.update(frame, metrics)
-
-            if metrics is None:
-                self.no_face.set()
-                self._was_active = False
+            try:
+                self._run_once()
+            except Exception as exc:  # noqa: BLE001 - never let one frame end tracking
+                # This thread is the only thing moving the cursor. Without
+                # this guard a single bad frame kills it for the session:
+                # the tray icon and window survive, the cursor just silently
+                # stops forever.
+                print(f"facemesh-mouse: frame failed ({exc!r}); continuing")
                 self._point_tracker.reset()
-                continue
-            self.no_face.clear()
+                time.sleep(0.1)
 
-            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-            height, width = gray.shape[:2]
-            nose = (metrics.nose_x * width, metrics.nose_y * height)
-            head_size = _head_size_px(metrics, width, height)
-            candidates = _seed_candidates(metrics, width, height)
-            self._point_tracker.update(gray, nose, head_size, candidates)
+    def _run_once(self) -> None:
+        ok, frame = self._camera.read()
+        if not ok:
+            # A stale reference frame would make the next good frame look
+            # like one enormous jump, which the acceleration curve then
+            # amplifies into a cursor slam against the screen edge.
+            self._point_tracker.reset()
+            time.sleep(0.05)
+            return
 
-            self._drive_control(metrics)
+        frame, metrics = self._tracker.process(frame)
+        self.state.update(frame, metrics)
+
+        if metrics is None:
+            self.no_face.set()
+            self._was_active = False
+            self._point_tracker.reset()
+            return
+        self.no_face.clear()
+
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        height, width = gray.shape[:2]
+        nose = (metrics.nose_x * width, metrics.nose_y * height)
+        head_size = _head_size_px(metrics, width, height)
+        candidates = _seed_candidates(metrics, width, height)
+        self._point_tracker.update(gray, nose, head_size, candidates)
+
+        self._drive_control(metrics)
 
     def _drive_control(self, metrics: FaceMetrics) -> None:
         """Drives the cursor/gestures for one frame with a face detected.

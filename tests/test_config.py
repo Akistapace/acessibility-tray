@@ -170,3 +170,22 @@ def test_legacy_name_does_not_override_an_already_migrated_config(tmp_path):
     loaded = config_mod.load_config(path)
 
     assert loaded.gestures["eyebrow_both"].action == "double_click"
+
+
+def test_out_of_range_calibration_values_are_clamped(tmp_path):
+    """A hand-edited negative acceleration would raise ZeroDivisionError
+    inside the acceleration curve and kill the tracking thread."""
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"acceleration": -5, "sensitivity_x": 99}}))
+
+    cal = config_mod.load_config(path).calibration
+
+    assert cal.acceleration == 0.0
+    assert cal.sensitivity_x == 0.10
+
+
+def test_non_numeric_calibration_value_falls_back_to_the_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"acceleration": "fast"}}))
+
+    assert config_mod.load_config(path).calibration.acceleration == 0.5

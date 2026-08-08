@@ -119,7 +119,7 @@ class CalibrationPanel:
         cal = self._config.calibration
         cal.sensitivity_x = round(self.sliders["sensitivity_x"].get(), 4)
         cal.sensitivity_y = round(self.sliders["sensitivity_y"].get(), 4)
-        cal.acceleration = self.sliders["acceleration"].get()
+        cal.acceleration = round(self.sliders["acceleration"].get(), 2)
         cal.motion_threshold_px = round(self.sliders["motion_threshold_px"].get(), 1)
 
     # -- per-frame ------------------------------------------------------

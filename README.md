@@ -1,6 +1,7 @@
 # FaceMesh Mouse
 
-Controle o mouse com a cabeça: a ponta do nariz move o cursor, e nove gestos
+Controle o mouse com a cabeça: vários pontos do rosto são rastreados por
+fluxo óptico e a média do movimento deles move o cursor, e nove gestos
 faciais (piscar cada olho ou os dois, levantar cada sobrancelha ou as duas,
 abrir a boca, mover a boca fechada para cada lado) disparam clique
 esquerdo/direito/duplo ou scroll — tudo configurável numa janela de
@@ -60,7 +61,7 @@ direita, três abas.
   piscada natural, que dura ~100-150ms).
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
-Quando terminar de calibrar e mapear os gestos, clique em "Iniciar controle
+Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar controle
 do mouse" (ou feche a janela) — a janela some e o controle do mouse fica
 ativo em background.
 
@@ -82,7 +83,7 @@ Config salvo em `config.json` na raiz do projeto (ignorado pelo git).
 .venv\Scripts\pytest
 ```
 
-Cobre a lógica pura (motor de gestos, matemática de calibração/smoothing,
+Cobre a lógica pura (motor de gestos, poda de pontos e curva de aceleração,
 load/save de config) sem precisar de câmera real. Câmera, mouse, bandeja e
 atalhos exigem checklist manual (ver spec).
 
@@ -117,4 +118,5 @@ O pipeline de rastreamento da cabeça (rastreamento de pontos por optical
 flow, poda dos pontos perdidos/duplicados/fora da região da cabeça, curva de
 aceleração do cursor) é portado do
 [tracky-mouse](https://github.com/1j01/tracky-mouse), de Isaiah Odhner,
-licenciado sob MIT.
+licenciado sob MIT. O texto completo da licença está em
+[THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).

@@ -87,6 +87,27 @@ class CalibrationConfig:
     motion_threshold_px: float = 0.0  # cursor movement below this is dropped
 
 
+# Accepted range per tuning field, matching the GUI sliders. Values are
+# clamped on load: a hand-edited negative acceleration would otherwise raise
+# ZeroDivisionError inside the acceleration curve on the first still frame
+# and kill the tracking thread.
+CALIBRATION_RANGES = {
+    "sensitivity_x": (0.005, 0.10),
+    "sensitivity_y": (0.005, 0.10),
+    "acceleration": (0.0, 1.0),
+    "motion_threshold_px": (0.0, 10.0),
+}
+
+
+def _clamped(raw_cal: dict, field: str, fallback: float) -> float:
+    low, high = CALIBRATION_RANGES[field]
+    try:
+        value = float(raw_cal.get(field, fallback))
+    except (TypeError, ValueError):
+        value = fallback
+    return max(low, min(high, value))
+
+
 @dataclass
 class GestureConfig:
     action: str = "none"
@@ -143,7 +164,7 @@ def load_config(path: str | Path) -> AppConfig:
 
     try:
         raw = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
         return default_config()
 
     default = default_config()
@@ -153,11 +174,11 @@ def load_config(path: str | Path) -> AppConfig:
     # bounds have no sensitivity equivalent to convert to.
     raw_cal = raw.get("calibration", {})
     calibration = CalibrationConfig(
-        sensitivity_x=float(raw_cal.get("sensitivity_x", default.calibration.sensitivity_x)),
-        sensitivity_y=float(raw_cal.get("sensitivity_y", default.calibration.sensitivity_y)),
-        acceleration=float(raw_cal.get("acceleration", default.calibration.acceleration)),
-        motion_threshold_px=float(
-            raw_cal.get("motion_threshold_px", default.calibration.motion_threshold_px)
+        sensitivity_x=_clamped(raw_cal, "sensitivity_x", default.calibration.sensitivity_x),
+        sensitivity_y=_clamped(raw_cal, "sensitivity_y", default.calibration.sensitivity_y),
+        acceleration=_clamped(raw_cal, "acceleration", default.calibration.acceleration),
+        motion_threshold_px=_clamped(
+            raw_cal, "motion_threshold_px", default.calibration.motion_threshold_px
         ),
     )
 

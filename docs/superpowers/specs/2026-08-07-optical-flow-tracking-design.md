@@ -51,7 +51,10 @@ jsfeat.
 positions as candidate points: nostrils (`98`, `327`) and the midpoint
 between the eyes (`168` — already used as our midline anchor). A candidate
 is **rejected if it is within `MIN_DISTANCE_TO_ADD = 7.5` px of an existing
-point on either axis**. Preferring already-tracked points over fresh ones
+point on both axes**, i.e. genuinely nearby — rejecting on either axis alone
+would discard symmetric features, which share a coordinate (the two nostrils
+sit at the same height, the midline points share an x).
+Preferring already-tracked points over fresh ones
 is deliberate: an established point already carries motion history, and
 adding a near-duplicate would displace it during pruning.
 
@@ -107,7 +110,7 @@ delta_y = accelerate(movement_y * sensitivity_y, acceleration)
 if abs(delta_x * screen_w) < motion_threshold_px: delta_x = 0.0
 if abs(delta_y * screen_h) < motion_threshold_px: delta_y = 0.0
 
-cursor_x -= delta_x * screen_w     # minus: the preview frame is mirrored
+cursor_x += delta_x * screen_w
 cursor_y += delta_y * screen_h
 clamp to screen bounds
 ```
@@ -118,6 +121,13 @@ where
 def accelerate(delta: float, acceleration: float) -> float:
     return delta * (abs(delta * 5.0) ** acceleration)
 ```
+
+Both axes **add**. `FaceTracker.process` mirrors the frame before FaceMesh
+runs and returns the mirrored frame, which is what the point tracker
+consumes, so the user's right is already `+x` — the same convention
+`mouth_shift_ratio` is documented against. Upstream tracky-mouse subtracts
+on x because it tracks an *unmirrored* frame; copying its sign here
+double-negates and sends the cursor the wrong way.
 
 The motion threshold is applied **after** acceleration, following
 tracky-mouse (which follows eViacam): that way the setting's unit is

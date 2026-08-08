@@ -152,3 +152,30 @@ def test_candidates_are_not_re_added_once_tracked():
     tracker.update(frame, (160.0, 120.0), 120.0, candidates)
 
     assert tracker.point_count == 2
+
+
+def test_should_add_point_accepts_a_candidate_level_but_far_horizontally():
+    """Symmetric features share a coordinate: the two nostrils sit at the
+    same height, the midline points share an x. Rejecting on one axis alone
+    would discard half the face."""
+    existing = _pts((100, 100))
+
+    assert should_add_point((160, 100), existing)  # same height, far apart
+    assert should_add_point((100, 160), existing)  # same column, far apart
+
+
+def test_a_freshly_seeded_point_does_not_dilute_this_frames_movement():
+    """A point added this frame has no movement to report; averaging its
+    zero in would understate the frame by 1/N."""
+    first = _textured_frame()
+    second = cv2.warpAffine(first, np.float32([[1, 0, 6], [0, 1, 0]]), (320, 240))
+
+    tracker = PointTracker()
+    nose = (160.0, 120.0)
+    tracker.update(first, nose, 120.0, [(150.0, 110.0), (170.0, 130.0)])
+    # a brand-new candidate, far from the tracked pair, arrives this frame
+    tracker.update(second, nose, 120.0, [(150.0, 110.0), (170.0, 130.0), (200.0, 60.0)])
+
+    dx, _dy = tracker.get_movement()
+
+    assert dx == pytest.approx(6.0, abs=1.0)
