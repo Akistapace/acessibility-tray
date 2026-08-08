@@ -17,7 +17,30 @@ from .tray import TrayIcon
 CONFIG_PATH = "config.json"
 
 
+def _make_process_dpi_aware() -> None:
+    """Must run before any Tk window is created.
+
+    customtkinter itself calls SetProcessDpiAwareness when the first CTk
+    window is built, but by then tkinter.Tk.__init__ has already run and
+    cached the desktop size at the OLD (unaware) logical resolution. Every
+    Win32 call made after the awareness flip -- including pynput's cursor
+    positioning -- then operates in physical pixels, while the cached
+    winfo_screenwidth/height stays at the stale logical value: on a scaled
+    display the cursor can never reach the true right/bottom edge. Setting
+    awareness here, first, makes Tk cache the real physical resolution so
+    it and pynput agree.
+    """
+    if sys.platform.startswith("win"):
+        import ctypes
+
+        try:
+            ctypes.windll.shcore.SetProcessDpiAwareness(2)  # PROCESS_PER_MONITOR_DPI_AWARE
+        except OSError:
+            pass
+
+
 def main() -> None:
+    _make_process_dpi_aware()
     _config_window_opener = None
 
     def _on_singleton_signal() -> None:
