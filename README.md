@@ -50,7 +50,10 @@ direita, três abas.
   movimentos pequenos mais lentos e movimentos grandes mais rápidos, para
   mirar com precisão sem perder velocidade) e limiar de movimento (ignora
   tremores menores que um certo número de pixels, pra ajudar o cursor a
-  parar completamente).
+  parar completamente). Um interruptor liga o clique por permanência
+  (dwell click): com um slider ao lado ajustando o tempo, o clique esquerdo
+  dispara sozinho quando o cursor fica parado sobre um elemento, sem
+  precisar de gesto — desligado por padrão.
 - **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
   aproxima de dispará-lo. Faça a expressão e veja qual barra reage pra saber
   qual é qual (os nomes "A"/"B" de olho e sobrancelha são só internos, sem
