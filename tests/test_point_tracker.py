@@ -3,7 +3,7 @@ import numpy as np
 import pytest
 
 from facemesh_mouse.point_tracker import (
-    MIN_DISTANCE_TO_ADD,
+    MIN_ADD_DISTANCE_FRACTION,
     PointTracker,
     mean_movement,
     prune_points,
@@ -28,12 +28,14 @@ def test_prune_drops_points_optical_flow_lost():
 
 
 def test_prune_deduplicates_points_sharing_a_grid_cell():
-    # (10,10) and (12,12) both fall in grid cell (2,2) at a 5px grid
+    # head_size=250 -> cell = 250 * 0.02 = 5.0; (10,10) and (12,12) both
+    # fall in grid cell (2,2) at that cell size, (40,40) does not.
+    head_size = 250.0
     cur = _pts((10, 10), (12, 12), (40, 40))
     prev = _pts((10, 10), (12, 12), (40, 40))
     status = np.array([1, 1, 1], dtype=np.uint8)
 
-    kept_cur, _ = prune_points(cur, prev, status, nose=(20, 20), head_size=100)
+    kept_cur, _ = prune_points(cur, prev, status, nose=(20, 20), head_size=head_size)
 
     assert len(kept_cur) == 2
 
@@ -51,11 +53,11 @@ def test_prune_culls_points_beyond_the_head_ellipse():
 
 
 def test_region_cull_is_stretched_horizontally():
-    """The cull ellipse is 1.4x wider than tall, so the same distance
-    survives vertically but not horizontally."""
+    """The cull ellipse is stretched horizontally by FACE_ASPECT_RATIO, so
+    the same distance survives vertically but not horizontally."""
     nose = (100.0, 100.0)
     head_size = 60.0
-    offset = 50.0  # 50 * 1.4 = 70 > 60 horizontally, but 50 < 60 vertically
+    offset = 50.0  # 50 * 1.3 = 65 > 60 horizontally, but 50 < 60 vertically
 
     horizontal = prune_points(
         _pts((100 + offset, 100)), _pts((100 + offset, 100)),
@@ -71,21 +73,36 @@ def test_region_cull_is_stretched_horizontally():
 
 
 def test_should_add_point_rejects_a_candidate_near_an_existing_one():
+    head_size = 100.0
+    min_distance = head_size * MIN_ADD_DISTANCE_FRACTION
     existing = _pts((100, 100))
-    too_close = (100 + MIN_DISTANCE_TO_ADD - 1, 100 + MIN_DISTANCE_TO_ADD - 1)
+    too_close = (100 + min_distance - 1, 100 + min_distance - 1)
 
-    assert not should_add_point(too_close, existing)
+    assert not should_add_point(too_close, existing, head_size)
 
 
 def test_should_add_point_accepts_a_candidate_clear_on_both_axes():
+    head_size = 100.0
+    min_distance = head_size * MIN_ADD_DISTANCE_FRACTION
     existing = _pts((100, 100))
-    far = (100 + MIN_DISTANCE_TO_ADD + 1, 100 + MIN_DISTANCE_TO_ADD + 1)
+    far = (100 + min_distance + 1, 100 + min_distance + 1)
 
-    assert should_add_point(far, existing)
+    assert should_add_point(far, existing, head_size)
 
 
 def test_should_add_point_accepts_anything_when_there_are_no_points():
-    assert should_add_point((5, 5), _pts())
+    assert should_add_point((5, 5), _pts(), head_size=100.0)
+
+
+def test_should_add_point_accepts_a_candidate_level_but_far_horizontally():
+    """Symmetric features share a coordinate: the two nostrils sit at the
+    same height, the midline points share an x. Rejecting on one axis alone
+    would discard half the face."""
+    head_size = 100.0
+    existing = _pts((100, 100))
+
+    assert should_add_point((160, 100), existing, head_size)  # same height, far apart
+    assert should_add_point((100, 160), existing, head_size)  # same column, far apart
 
 
 def test_mean_movement_averages_every_point():
@@ -152,16 +169,6 @@ def test_candidates_are_not_re_added_once_tracked():
     tracker.update(frame, (160.0, 120.0), 120.0, candidates)
 
     assert tracker.point_count == 2
-
-
-def test_should_add_point_accepts_a_candidate_level_but_far_horizontally():
-    """Symmetric features share a coordinate: the two nostrils sit at the
-    same height, the midline points share an x. Rejecting on one axis alone
-    would discard half the face."""
-    existing = _pts((100, 100))
-
-    assert should_add_point((160, 100), existing)  # same height, far apart
-    assert should_add_point((100, 160), existing)  # same column, far apart
 
 
 def test_a_freshly_seeded_point_does_not_dilute_this_frames_movement():

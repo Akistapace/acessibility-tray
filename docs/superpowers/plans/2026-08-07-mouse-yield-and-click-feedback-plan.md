@@ -237,8 +237,8 @@ In `src/facemesh_mouse/config.py`, replace:
 ```python
 @dataclass
 class CalibrationConfig:
-    """Cursor tuning. Defaults are tracky-mouse's shipped values; vertical
-    sensitivity is twice horizontal because heads travel less vertically."""
+    """Cursor tuning. Vertical sensitivity is twice horizontal because heads
+    travel less vertically than horizontally."""
 
     sensitivity_x: float = 0.025
     sensitivity_y: float = 0.05
@@ -251,8 +251,8 @@ with:
 ```python
 @dataclass
 class CalibrationConfig:
-    """Cursor tuning. Defaults are tracky-mouse's shipped values; vertical
-    sensitivity is twice horizontal because heads travel less vertically."""
+    """Cursor tuning. Vertical sensitivity is twice horizontal because heads
+    travel less vertically than horizontally."""
 
     sensitivity_x: float = 0.025
     sensitivity_y: float = 0.05
@@ -476,11 +476,9 @@ Replace the entire file:
 ```python
 """Cursor movement math + action execution via pynput.
 
-The acceleration curve is ported from tracky-mouse (MIT, (c) Isaiah
-Odhner), https://github.com/1j01/tracky-mouse. It damps small movements
-hard while leaving large ones fast, which stabilizes the cursor without an
-averaging filter's latency -- each frame's output depends only on that
-frame's input.
+The acceleration curve damps small movements hard while leaving large ones
+fast, which stabilizes the cursor without an averaging filter's latency --
+each frame's output depends only on that frame's input.
 
 The pure math (`accelerate`, `clamp`) is separated from the pynput-driving
 `MouseController` so it can be unit tested without a real display or OS
@@ -594,8 +592,7 @@ class MouseController:
             delta_y = 0.0
 
         # The tracked frame is already mirrored by FaceTracker.process, so
-        # camera x matches screen x: the user's right is +x in both. (Upstream
-        # tracky-mouse subtracts here because it tracks an unmirrored frame.)
+        # camera x matches screen x: the user's right is +x in both.
         self._cursor_x = clamp(
             self._cursor_x + delta_x * self._screen_w, 0, self._screen_w - 1
         )

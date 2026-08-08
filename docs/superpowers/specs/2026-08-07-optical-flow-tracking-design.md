@@ -1,4 +1,4 @@
-# FaceMesh Mouse — Optical-Flow Tracking (tracky-mouse port) — Design Spec
+# FaceMesh Mouse — Optical-Flow Tracking — Design Spec
 
 **Date:** 2026-08-07
 **Status:** Approved
@@ -15,27 +15,26 @@ use it feels jittery and laggy: the landmark's own frame-to-frame noise goes
 straight to the cursor, and the EMA that hides the jitter also adds
 latency.
 
-[tracky-mouse](https://github.com/1j01/tracky-mouse) (MIT) solves the same
-problem noticeably better. This spec ports its tracking pipeline: many
-points tracked by optical flow and averaged, a power-curve acceleration
-instead of an EMA, and per-axis sensitivity.
+This spec replaces that with a different pipeline: many points tracked by
+optical flow and averaged, a power-curve acceleration instead of an EMA,
+and per-axis sensitivity.
 
-## Why Their Approach Is Steadier
+## Why This Approach Is Steadier
 
-Three mechanisms, each addressing a different failure of ours:
+Three mechanisms, each addressing a different failure of the single-landmark
+approach:
 
-1. **Averaging many points instead of trusting one.** They seed points on
-   the face and track them with Lucas-Kanade optical flow, then take the
+1. **Averaging many points instead of trusting one.** Seed points on the
+   face and track them with Lucas-Kanade optical flow, then take the
    arithmetic mean of every surviving point's frame-to-frame delta. A single
    landmark's inference noise is uncorrelated across points, so averaging
    N points cuts it roughly by √N. This is where the *consistency* comes
    from.
-2. **A power-curve acceleration instead of a smoothing filter.** Their
-   `delta * |delta * 5| ** acceleration` shrinks small movements hard (so
-   holding still is genuinely still, and fine positioning is possible) while
-   leaving large movements fast. Unlike an EMA it introduces **no latency** —
-   each frame's output depends only on that frame's input. This is where the
-   *fluidity* comes from.
+2. **A power-curve acceleration instead of a smoothing filter.** A curve
+   that shrinks small movements hard (so holding still is genuinely still,
+   and fine positioning is possible) while leaving large movements fast.
+   Unlike an EMA it introduces **no latency** — each frame's output depends
+   only on that frame's input. This is where the *fluidity* comes from.
 3. **Optical flow is temporally coherent.** Landmarks are re-inferred from
    scratch each frame; optical flow follows actual image texture from the
    previous frame, so its deltas don't carry per-frame re-detection jumps.
@@ -44,36 +43,38 @@ Three mechanisms, each addressing a different failure of ours:
 
 ### Point tracking (`point_tracker.py`, new)
 
-Ported from tracky-mouse's point-tracker class, using OpenCV in place of
-jsfeat.
+**Seeding.** Each frame with a detected face, offer several landmark
+positions as candidate points, drawn only from rigid parts of the face
+(nose bridge and tip, nostrils, temples, cheek edges) — deliberately never
+the mouth, eyebrows, or eyelids, which move during gestures and would jerk
+the cursor mid-click. A candidate is **rejected only if an existing point
+is already within a small fraction of the tracked head's size on BOTH
+axes** — i.e. genuinely nearby. Rejecting on either axis alone would
+discard symmetric features, which share a coordinate (the two nostrils sit
+at the same height, the midline points share an x). Preferring
+already-tracked points over fresh ones is deliberate: an established point
+already carries motion history, and adding a near-duplicate would displace
+it during pruning. Thresholds scale with head size (a fraction of it,
+rather than a fixed pixel count) so the same relative behavior holds
+whether the user sits close to the camera or farther back.
 
-**Seeding.** Each frame with a detected face, offer three landmark
-positions as candidate points: nostrils (`98`, `327`) and the midpoint
-between the eyes (`168` — already used as our midline anchor). A candidate
-is **rejected if it is within `MIN_DISTANCE_TO_ADD = 7.5` px of an existing
-point on both axes**, i.e. genuinely nearby — rejecting on either axis alone
-would discard symmetric features, which share a coordinate (the two nostrils
-sit at the same height, the midline points share an x).
-Preferring already-tracked points over fresh ones
-is deliberate: an established point already carries motion history, and
-adding a near-duplicate would displace it during pruning.
-
-**Tracking.** `cv2.calcOpticalFlowPyrLK` on the grayscale frame, with
-tracky-mouse's parameters: `winSize=(20, 20)`, `maxLevel=3`, and
-`criteria=(EPS | COUNT, 30, 0.01)`.
+**Tracking.** `cv2.calcOpticalFlowPyrLK` on the grayscale frame, with a
+tight minimum-eigenvalue threshold (well below OpenCV's own default) so
+low-texture, unreliable tracks get rejected rather than admitted and left
+to wander.
 
 **Pruning**, in this order every frame:
 
 - Drop points optical flow reports as lost (`status != 1`).
-- **De-duplicate on a spatial grid** of `PRUNING_GRID = 5` px: points are
-  bucketed by `(int(x / 5), int(y / 5))` and one survivor is kept per
-  bucket. Collapsed points contribute nothing, and clusters would weight
-  one part of the face more heavily than the rest.
+- **De-duplicate on a spatial grid** sized as a small fraction of head
+  size: points are bucketed and one survivor is kept per bucket. Collapsed
+  points contribute nothing, and clusters would weight one part of the
+  face more heavily than the rest.
 - **Cull points that have drifted off the face**: drop any point farther
   from the nose tip than the head size, measured on an ellipse stretched
-  1.4× horizontally (`hypot((nose_x - x) * 1.4, nose_y - y) > head_size`,
-  where `head_size` is the outer-eye-corner distance — landmarks `33` and
-  `263`).
+  horizontally to match the average adult face's height/width ratio
+  (`head_size` itself is the outer-eye-corner distance — landmarks `33`
+  and `263`).
 
 **Movement.** `get_movement()` returns the arithmetic mean of
 `current - previous` across surviving points, in camera pixels, or
@@ -90,7 +91,7 @@ i.e. the wrong direction on both axes. The region cull is what catches it:
 the diverged point landed ~188 px from the nose against a ~60 px head
 size, far outside the ellipse. Reading movement before culling, or
 dropping the cull as redundant with `status`, reintroduces exactly the
-jitter this port exists to remove.
+jitter this pipeline exists to remove.
 
 The mean is outlier-sensitive by construction; the pipeline's answer is
 to remove outliers before averaging (status filter, then grid
@@ -115,24 +116,37 @@ cursor_y += delta_y * screen_h
 clamp to screen bounds
 ```
 
-where
+where the acceleration curve is a power curve around a reference
+magnitude: below it the delta shrinks, above it the delta grows, and at
+`acceleration = 0` the curve is a flat pass-through (gain of 1
+everywhere):
 
 ```python
-def accelerate(delta: float, acceleration: float) -> float:
-    return delta * (abs(delta * 5.0) ** acceleration)
+def accelerate(delta: float, acceleration: float, reference: float = 0.05) -> float:
+    magnitude = abs(delta)
+    if magnitude < 1e-9:
+        return 0.0
+    gain = (magnitude / reference) ** acceleration
+    return delta * gain
 ```
+
+The reference value is derived from measuring real head-tracking output at
+the default sensitivity: holding still produces deltas around 0.02–0.03,
+deliberate movement produces 0.15 or more, so `0.05` cleanly separates the
+two regimes.
 
 Both axes **add**. `FaceTracker.process` mirrors the frame before FaceMesh
 runs and returns the mirrored frame, which is what the point tracker
 consumes, so the user's right is already `+x` — the same convention
-`mouth_shift_ratio` is documented against. Upstream tracky-mouse subtracts
-on x because it tracks an *unmirrored* frame; copying its sign here
-double-negates and sends the cursor the wrong way.
+`mouth_shift_ratio` is documented against. An earlier draft of this pipeline
+subtracted on x (correct only for an *unmirrored* frame) and sent the
+cursor the wrong way; the fix and a regression test that crosses the actual
+mirroring boundary are documented in the git history for `mouse_controller.py`.
 
-The motion threshold is applied **after** acceleration, following
-tracky-mouse (which follows eViacam): that way the setting's unit is
-honestly "screen pixels of cursor movement", not "pixels before a curve is
-applied to them".
+The motion threshold is applied **after** acceleration, matching a common
+convention in pointer-acceleration implementations (e.g. eViacam's "Motion
+Threshold"): that way the setting's unit is honestly "screen pixels of
+cursor movement", not "pixels before a curve is applied to them".
 
 The EMA (`ema_smooth`) is removed from the cursor path. Acceleration
 provides the stability it was there for, without its latency.
@@ -157,10 +171,8 @@ mapping left to jump.
 | `smoothing` | `acceleration` | `0.5` |
 | `deadzone_px` | `motion_threshold_px` | `0.0` |
 
-Defaults are tracky-mouse's shipped values (its sliders store
-`slider / 1000` for sensitivity and `slider / 100` for acceleration;
-defaults 25, 50, and 50 respectively). Vertical sensitivity is twice
-horizontal because heads travel less vertically than horizontally.
+Vertical sensitivity is twice horizontal because heads travel less
+vertically than horizontally.
 
 Removed keys in an existing `config.json` are ignored, and the new keys get
 their defaults — the old four-point bounds have no meaningful translation
@@ -197,27 +209,20 @@ The window additionally sets an explicit initial geometry and a `minsize`.
 `cancel_capture()` is removed along with the capture state, and the shell
 stops calling it.
 
-## Attribution
-
-The pipeline, its constants (`5` px pruning grid, `7.5` px minimum
-add-distance, `20` px window, the `|delta * 5| ** acceleration` curve, the
-1.4× ellipse), and the defaults are ported from tracky-mouse, MIT
-licensed, © Isaiah Odhner. `point_tracker.py` and the acceleration function
-carry a module-level comment naming the project, the license, and the URL.
-
 ## Testing
 
 - **`accelerate`** — pure: zero in gives zero out; sign is preserved;
-  `acceleration=0` reduces to a linear pass-through (`|d*5|**0 == 1`);
+  `acceleration=0` reduces to a linear pass-through (gain of 1 everywhere);
   a higher acceleration shrinks a small delta more than a large one
   (the property the whole curve exists for).
 - **Pruning** — pure given synthetic point arrays: lost points dropped;
-  two points in the same 5 px bucket collapse to one; a point beyond the
-  head-size ellipse is culled while one inside is kept; the 1.4×
-  horizontal stretch is asserted by a point that survives vertically but
-  not at the same horizontal distance.
-- **Seeding** — a candidate within 7.5 px of an existing point on either
-  axis is rejected; one farther out on both axes is accepted.
+  two points sharing a grid bucket collapse to one; a point beyond the
+  head-size ellipse is culled while one inside is kept; the horizontal
+  stretch is asserted by a point that survives vertically but not at the
+  same horizontal distance.
+- **Seeding** — a candidate within the minimum distance of an existing
+  point on both axes is rejected; one farther out on both axes, or level
+  with an existing point on only one axis, is accepted.
 - **`get_movement`** — mean of several points' deltas; `(0.0, 0.0)` with no
   points.
 - **Optical flow integration** — a real `cv2.calcOpticalFlowPyrLK` run on a
@@ -238,12 +243,11 @@ carry a module-level comment naming the project, the license, and the URL.
 
 ## Out of Scope (YAGNI)
 
-- tracky-mouse's head-tilt (3D pose) blending — its `headTrackingTiltInfluence`
-  defaults to 0, i.e. off, and it carries a second calibration surface
-  (yaw/pitch ranges and offsets).
-- Its dwell-clicking system — we have the gesture system for clicks.
-- Its `OneEuroFilter` — only used there for head tilt, which we are not
-  porting.
-- Adding points by clicking the preview, and the debug point/acceleration
+- Head-tilt (3D pose) based cursor control — nose-tip/point-tracking
+  position only, per the v1 spec's existing scope.
+- A dwell-clicking system — the gesture system already covers clicks.
+- A one-euro-style adaptive filter — the acceleration curve already covers
+  the stability/responsiveness tradeoff without added latency.
+- Adding points by clicking the preview, and debug point/acceleration
   overlays.
 - Any change to gestures, the tray, hotkeys, or the single-instance guard.

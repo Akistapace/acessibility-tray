@@ -1,37 +1,47 @@
 """Optical-flow point tracking for cursor movement.
 
-Ported from tracky-mouse (MIT, (c) Isaiah Odhner),
-https://github.com/1j01/tracky-mouse -- its point-tracker class, pruning
-rules, and constants, with OpenCV standing in for jsfeat.
+Tracks several points on rigid parts of the face (nose bridge, nostrils,
+temples, cheek edges -- deliberately not the mouth/eyebrows/eyelids, which
+move during gestures) frame-to-frame with Lucas-Kanade optical flow, and
+reports the average of their movement. Averaging multiple points cancels
+noise that following a single face landmark carries straight through to
+the cursor: any point that has drifted or lost tracking is pruned before
+the average is taken, so an outlier can't drag the whole result off
+course.
 
-Averaging the frame-to-frame movement of several tracked points cancels
-noise that a single face landmark carries straight through to the cursor.
+Distance thresholds scale with the tracked head's size in the frame rather
+than using fixed pixel counts, so the same relative behavior holds whether
+the user sits close to the camera or farther back.
 """
 from __future__ import annotations
 
 import cv2
 import numpy as np
 
-# Points closer together than one grid cell are collapsed: points that have
-# converged carry no extra information, and a cluster would weight one part
-# of the face more than the rest.
-PRUNING_GRID = 5.0
+# Points closer together than this fraction of the head size are collapsed:
+# points that have converged carry no extra information, and a cluster
+# would weight one part of the face more heavily than the rest.
+PRUNING_CELL_FRACTION = 0.02
 
-# A candidate is skipped if an existing point is already within this
-# distance on BOTH axes, i.e. genuinely nearby. Established points already
-# carry motion history, so they are preferred over fresh ones.
-MIN_DISTANCE_TO_ADD = PRUNING_GRID * 1.5
+# A candidate is skipped only when an existing point is already within this
+# fraction of the head size on BOTH axes -- i.e. genuinely nearby. Rejecting
+# on either axis alone would discard symmetric features, which share a
+# coordinate (the two nostrils sit at the same height, the midline points
+# share an x). Established points already carry motion history, so they're
+# preferred over a fresh candidate sitting on top of one.
+MIN_ADD_DISTANCE_FRACTION = 0.03
 
-# The cull region is an ellipse taller than it is wide: the x term is
-# multiplied by the stretch, so the horizontal reach is head_size / 1.4.
-REGION_X_STRETCH = 1.4
+# Average adult face height/width ratio: the cull region is an ellipse this
+# much taller than it is wide, so it fits an actual face shape rather than
+# a circle.
+FACE_ASPECT_RATIO = 1.3
 
 _LK_PARAMS = dict(
-    winSize=(20, 20),
-    maxLevel=3,
-    criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.01),
-    # Upstream's value. OpenCV defaults to 1e-4, ten times looser, which
-    # admits low-texture tracks that wander.
+    winSize=(21, 21),
+    maxLevel=2,
+    criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 30, 0.03),
+    # Rejects low-texture tracks that tend to wander; well below OpenCV's
+    # own default of 1e-4.
     minEigThreshold=0.001,
 )
 
@@ -44,17 +54,19 @@ def prune_points(points, prev_points, status, nose, head_size):
     """Drops points optical flow lost, collapses near-duplicates, and culls
     points that have drifted off the face -- in that order.
 
-    Optical flow reports success for points that have visibly diverged, so
-    the region cull rather than `status` is what keeps a runaway point from
-    dragging the average. Returns the surviving (current, previous) arrays.
+    Optical flow can report success for a point that has visibly diverged,
+    so the region cull, not `status`, is the real backstop against a
+    runaway point dragging the average off course. Returns the surviving
+    (current, previous) arrays.
     """
     keep = np.asarray(status).reshape(-1) == 1
     points = np.asarray(points, dtype=np.float32).reshape(-1, 2)[keep]
     prev_points = np.asarray(prev_points, dtype=np.float32).reshape(-1, 2)[keep]
 
+    cell = max(head_size * PRUNING_CELL_FRACTION, 1.0)
     seen_cells = {}
     for index, (x, y) in enumerate(points):
-        seen_cells[(int(x // PRUNING_GRID), int(y // PRUNING_GRID))] = index
+        seen_cells[(int(x // cell), int(y // cell))] = index
     if seen_cells:
         unique = sorted(seen_cells.values())
         points = points[unique]
@@ -63,7 +75,7 @@ def prune_points(points, prev_points, status, nose, head_size):
     if len(points):
         nose_x, nose_y = nose
         distances = np.hypot(
-            (points[:, 0] - nose_x) * REGION_X_STRETCH, points[:, 1] - nose_y
+            (points[:, 0] - nose_x) * FACE_ASPECT_RATIO, points[:, 1] - nose_y
         )
         inside = distances <= head_size
         points = points[inside]
@@ -72,18 +84,15 @@ def prune_points(points, prev_points, status, nose, head_size):
     return points, prev_points
 
 
-def should_add_point(candidate, points) -> bool:
-    """Whether a candidate is far enough from every tracked point to be
-    worth adding. A candidate is only skipped when an existing point is
-    close on BOTH axes -- i.e. genuinely nearby. Rejecting on either axis
-    alone would throw away symmetric features, which share a coordinate:
-    the two nostrils sit at the same height, the midline points share an x.
-    """
+def should_add_point(candidate, points, head_size) -> bool:
+    """Whether a candidate is far enough from every tracked point, on BOTH
+    axes, to be worth adding."""
     points = np.asarray(points, dtype=np.float32).reshape(-1, 2)
     if not len(points):
         return True
-    close_x = np.abs(points[:, 0] - candidate[0]) <= MIN_DISTANCE_TO_ADD
-    close_y = np.abs(points[:, 1] - candidate[1]) <= MIN_DISTANCE_TO_ADD
+    min_distance = max(head_size * MIN_ADD_DISTANCE_FRACTION, 1.0)
+    close_x = np.abs(points[:, 0] - candidate[0]) <= min_distance
+    close_y = np.abs(points[:, 1] - candidate[1]) <= min_distance
     return not bool(np.any(close_x & close_y))
 
 
@@ -139,7 +148,7 @@ class PointTracker:
         self._movement = mean_movement(self._points, self._prev_points)
 
         for candidate in candidates:
-            if should_add_point(candidate, self._points):
+            if should_add_point(candidate, self._points, head_size):
                 self._points = np.vstack(
                     [self._points, np.array([candidate], dtype=np.float32)]
                 )

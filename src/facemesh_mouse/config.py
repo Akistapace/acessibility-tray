@@ -78,8 +78,8 @@ DEFAULT_HOLD_MS = {name: 400 for name in GESTURE_NAMES}
 
 @dataclass
 class CalibrationConfig:
-    """Cursor tuning. Defaults are tracky-mouse's shipped values; vertical
-    sensitivity is twice horizontal because heads travel less vertically."""
+    """Cursor tuning. Vertical sensitivity is twice horizontal because heads
+    travel less vertically than horizontally."""
 
     sensitivity_x: float = 0.025
     sensitivity_y: float = 0.05

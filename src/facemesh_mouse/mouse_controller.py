@@ -1,10 +1,8 @@
 """Cursor movement math + action execution via pynput.
 
-The acceleration curve is ported from tracky-mouse (MIT, (c) Isaiah
-Odhner), https://github.com/1j01/tracky-mouse. It damps small movements
-hard while leaving large ones fast, which stabilizes the cursor without an
-averaging filter's latency -- each frame's output depends only on that
-frame's input.
+The acceleration curve damps small movements hard while leaving large ones
+fast, which stabilizes the cursor without an averaging filter's latency --
+each frame's output depends only on that frame's input.
 
 The pure math (`accelerate`, `clamp`) is separated from the pynput-driving
 `MouseController` so it can be unit tested without a real display or OS
@@ -39,11 +37,24 @@ def clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
 
 
-def accelerate(delta: float, acceleration: float) -> float:
-    """Power curve: small movements shrink far more than large ones, so
-    holding still is genuinely still and fine positioning is possible while
-    big movements stay fast. `acceleration` of 0 is a linear pass-through."""
-    return delta * (abs(delta * 5.0) ** acceleration)
+# Below this magnitude (post-sensitivity, pre-acceleration) the curve
+# shrinks the delta; above it, the curve grows the delta. Derived from
+# measuring real head-tracking output at the default sensitivity: holding
+# still produces deltas around 0.02-0.03, deliberate movement produces
+# 0.15+, so 0.05 cleanly separates the two.
+_ACCELERATION_REFERENCE = 0.05
+
+
+def accelerate(delta: float, acceleration: float, reference: float = _ACCELERATION_REFERENCE) -> float:
+    """Power curve: below `reference` magnitude the delta shrinks (fine
+    positioning), above it the delta grows (fast travel), so holding still
+    is genuinely still while big movements stay fast. `acceleration` of 0
+    is a linear pass-through (the curve's gain is 1 everywhere)."""
+    magnitude = abs(delta)
+    if magnitude < 1e-9:
+        return 0.0
+    gain = (magnitude / reference) ** acceleration
+    return delta * gain
 
 
 class MouseController:
@@ -118,8 +129,7 @@ class MouseController:
             delta_y = 0.0
 
         # The tracked frame is already mirrored by FaceTracker.process, so
-        # camera x matches screen x: the user's right is +x in both. (Upstream
-        # tracky-mouse subtracts here because it tracks an unmirrored frame.)
+        # camera x matches screen x: the user's right is +x in both.
         self._cursor_x = clamp(
             self._cursor_x + delta_x * self._screen_w, 0, self._screen_w - 1
         )

@@ -3,9 +3,7 @@
 Four-point calibration is gone -- the cursor now moves relatively, driven by
 averaged optical-flow movement (see `point_tracker.py` and
 `mouse_controller.py`), so there is nothing left to record. This tab just
-tunes how that movement turns into cursor speed. The slider defaults are
-tracky-mouse's shipped values (MIT, (c) Isaiah Odhner),
-https://github.com/1j01/tracky-mouse.
+tunes how that movement turns into cursor speed.
 """
 from __future__ import annotations
 

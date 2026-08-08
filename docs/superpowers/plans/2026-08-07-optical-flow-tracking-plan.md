@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Replace single-landmark cursor mapping with tracky-mouse's pipeline — many points tracked by Lucas-Kanade optical flow and averaged, a power-curve acceleration in place of the EMA, and per-axis sensitivity replacing the four-point calibration.
+**Goal:** Replace single-landmark cursor mapping with a many-points pipeline — points tracked by Lucas-Kanade optical flow and averaged, a power-curve acceleration in place of the EMA, and per-axis sensitivity replacing the four-point calibration.
 
 **Architecture:** A new `point_tracker.py` owns the optical-flow point set (seed from landmarks, track, prune, average). `mouse_controller.py` drops the calibration-derived scale and the EMA for `accelerate()` plus per-axis sensitivity. `engine.py` feeds the grayscale frame to the tracker and hands the averaged movement to the controller. The Movimento tab becomes four sliders.
 
@@ -10,7 +10,7 @@
 
 ## Global Constraints
 
-- Pipeline, constants, and defaults are ported from **tracky-mouse** (MIT, © Isaiah Odhner, https://github.com/1j01/tracky-mouse). `point_tracker.py` and `accelerate()` must carry a module-level comment naming the project, its license, and the URL.
+- Distance thresholds in `point_tracker.py` scale with head size (a fraction of it) rather than fixed pixel counts, so behavior stays consistent regardless of how close the user sits to the camera.
 - Every module keeps `from __future__ import annotations` as its first import.
 - UI strings stay in Portuguese **with correct diacritics** (`ç`, `ã`, `á`, `é`, `í`, `ó`, `ú`, and the verb `é`). A previous pass shipped them stripped and it had to be fixed — do not regress.
 - Run tests with `.venv\Scripts\python -m pytest tests/ -v` from the repo root. The suite must end with **0 skipped**.
@@ -207,9 +207,8 @@ Expected: FAIL with `ModuleNotFoundError: No module named 'facemesh_mouse.point_
 ```python
 """Optical-flow point tracking for cursor movement.
 
-Ported from tracky-mouse (MIT, (c) Isaiah Odhner),
-https://github.com/1j01/tracky-mouse -- its point-tracker class, pruning
-rules, and constants, with OpenCV standing in for jsfeat.
+Tracks several points on rigid parts of the face with Lucas-Kanade optical
+flow, using OpenCV.
 
 Averaging the frame-to-frame movement of several tracked points cancels
 noise that a single face landmark carries straight through to the cursor.
@@ -359,7 +358,7 @@ Expected: PASS, 0 skipped
 
 ```bash
 git add src/facemesh_mouse/point_tracker.py tests/test_point_tracker.py
-git commit -m "feat(tracking): optical-flow point tracker ported from tracky-mouse"
+git commit -m "feat(tracking): optical-flow point tracker"
 ```
 
 ---
@@ -573,8 +572,8 @@ with:
 ```python
 @dataclass
 class CalibrationConfig:
-    """Cursor tuning. Defaults are tracky-mouse's shipped values; vertical
-    sensitivity is twice horizontal because heads travel less vertically."""
+    """Cursor tuning. Vertical sensitivity is twice horizontal because heads
+    travel less vertically than horizontally."""
 
     sensitivity_x: float = 0.025
     sensitivity_y: float = 0.05
@@ -608,11 +607,9 @@ Replace the whole file with:
 ```python
 """Cursor movement math + action execution via pynput.
 
-The acceleration curve is ported from tracky-mouse (MIT, (c) Isaiah
-Odhner), https://github.com/1j01/tracky-mouse. It damps small movements
-hard while leaving large ones fast, which stabilizes the cursor without an
-averaging filter's latency -- each frame's output depends only on that
-frame's input.
+The acceleration curve damps small movements hard while leaving large ones
+fast, which stabilizes the cursor without an averaging filter's latency --
+each frame's output depends only on that frame's input.
 
 The pure math (`accelerate`, `clamp`) is separated from the pynput-driving
 `MouseController` so it can be unit tested without a real display or OS
@@ -760,8 +757,8 @@ and replace `_drive_control` with:
 Then add these two module-level helpers to `engine.py`, below the imports:
 
 ```python
-# Landmarks seeded as tracking points, following tracky-mouse: the two
-# nostrils and the midpoint between the eyes.
+# Landmarks seeded as tracking points: the two nostrils and the midpoint
+# between the eyes.
 _SEED_LANDMARKS = (98, 327, 168)
 
 
@@ -903,8 +900,7 @@ Expected: FAIL with `AttributeError: 'CalibrationPanel' object has no attribute 
 
 Replace the whole file. Requirements:
 
-- Module docstring explaining the tab now holds cursor tuning, and that the
-  defaults come from tracky-mouse (MIT, © Isaiah Odhner).
+- Module docstring explaining the tab now holds cursor tuning.
 - `from __future__ import annotations` first.
 - `SLIDER_SPECS`: an ordered mapping of field name →
   `(label, from_, to, description)` with these exact values:
@@ -952,10 +948,6 @@ Expected: PASS, 0 skipped
   mouse, and the Movimento tab tunes horizontal/vertical sensitivity,
   acceleration, and the motion threshold. Keep the gesture and start
   guidance as-is.
-- Add a short "Créditos" section: the head-tracking pipeline (optical-flow
-  point tracking, pruning, acceleration curve) is ported from
-  [tracky-mouse](https://github.com/1j01/tracky-mouse) by Isaiah Odhner,
-  MIT licensed.
 - Add the new spec to the design-doc link line.
 
 - [ ] **Step 7: Commit**
