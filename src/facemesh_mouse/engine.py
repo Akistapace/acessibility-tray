@@ -84,6 +84,13 @@ class Engine:
         self._point_tracker = PointTracker()
         self._was_active = False
 
+    @property
+    def mouse_controller(self) -> MouseController | None:
+        """Exposes the controller so callers outside the engine thread (the
+        tray-status poll, in main.py) can read its `yielded` state. `None`
+        until `start()` has run."""
+        return self._mouse_controller
+
     def open_camera(self) -> bool:
         self._camera = cv2.VideoCapture(self._camera_index, cv2.CAP_DSHOW)
         return self._camera.isOpened()

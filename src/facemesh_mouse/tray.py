@@ -1,4 +1,10 @@
-"""System tray icon: Pause/Resume, Open Config, Quit."""
+"""System tray icon: Pause/Resume, Open Config, Quit.
+
+Icon color reflects one state, chosen by precedence (highest first): paused
+overrides everything else the user might also be seeing (a face, a physical
+mouse) since it's the state they explicitly asked for; yielded overrides
+no-face and running.
+"""
 from __future__ import annotations
 
 import threading
@@ -19,6 +25,7 @@ def _make_icon_image(color: str) -> Image.Image:
 _ICON_RUNNING = _make_icon_image("#2ecc71")
 _ICON_PAUSED = _make_icon_image("#f1c40f")
 _ICON_NO_FACE = _make_icon_image("#e67e22")
+_ICON_YIELDED = _make_icon_image("#3498db")
 
 
 class TrayIcon:
@@ -31,6 +38,9 @@ class TrayIcon:
         self._on_toggle_pause = on_toggle_pause
         self._on_open_config = on_open_config
         self._on_quit = on_quit
+        self._paused = False
+        self._no_face = False
+        self._yielded = False
         self._icon = pystray.Icon(
             "facemesh_mouse",
             _ICON_RUNNING,
@@ -43,11 +53,11 @@ class TrayIcon:
         )
 
     def _pause_label(self, _item) -> str:
-        return "Retomar" if self._icon.icon is _ICON_PAUSED else "Pausar"
+        return "Retomar" if self._paused else "Pausar"
 
     def _toggle_pause(self, _icon=None, _item=None) -> None:
-        paused = self._on_toggle_pause()
-        self._icon.icon = _ICON_PAUSED if paused else _ICON_RUNNING
+        self._paused = self._on_toggle_pause()
+        self._refresh()
         self._icon.update_menu()
 
     def toggle_pause(self) -> None:
@@ -62,9 +72,24 @@ class TrayIcon:
         self._icon.stop()
 
     def set_no_face(self, no_face: bool) -> None:
-        if self._icon.icon is _ICON_PAUSED:
-            return
-        self._icon.icon = _ICON_NO_FACE if no_face else _ICON_RUNNING
+        self._no_face = no_face
+        self._refresh()
+
+    def set_yielded(self, yielded: bool) -> None:
+        """Called when cursor control is yielded to a physical mouse touch
+        (see `MouseController.yielded`)."""
+        self._yielded = yielded
+        self._refresh()
+
+    def _refresh(self) -> None:
+        if self._paused:
+            self._icon.icon = _ICON_PAUSED
+        elif self._yielded:
+            self._icon.icon = _ICON_YIELDED
+        elif self._no_face:
+            self._icon.icon = _ICON_NO_FACE
+        else:
+            self._icon.icon = _ICON_RUNNING
 
     def run_in_thread(self) -> threading.Thread:
         thread = threading.Thread(target=self._icon.run, daemon=True)

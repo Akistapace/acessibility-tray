@@ -111,7 +111,7 @@ def main() -> None:
     )
     hotkeys.start()
 
-    _poll_no_face(root, engine, tray)
+    _poll_status(root, engine, tray)
 
     root.mainloop()
 
@@ -124,9 +124,11 @@ def _make_on_start(engine: Engine):
     return on_start
 
 
-def _poll_no_face(root: tk.Tk, engine: Engine, tray: TrayIcon) -> None:
+def _poll_status(root: tk.Tk, engine: Engine, tray: TrayIcon) -> None:
     tray.set_no_face(engine.no_face.is_set())
-    root.after(500, _poll_no_face, root, engine, tray)
+    mouse_controller = engine.mouse_controller
+    tray.set_yielded(mouse_controller.yielded if mouse_controller is not None else False)
+    root.after(500, _poll_status, root, engine, tray)
 
 
 if __name__ == "__main__":

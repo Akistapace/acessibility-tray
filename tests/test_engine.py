@@ -83,3 +83,11 @@ def test_paused_frame_does_not_move_cursor_or_evaluate_gestures():
 
     engine._mouse_controller.move_cursor.assert_not_called()
     engine._gesture_engine.evaluate.assert_not_called()
+
+
+def test_mouse_controller_property_exposes_the_controller_after_start():
+    engine = Engine(default_config())
+    assert engine.mouse_controller is None
+
+    engine._mouse_controller = MagicMock()
+    assert engine.mouse_controller is engine._mouse_controller
