@@ -151,6 +151,7 @@ class Engine:
             if not self._was_active:
                 self._mouse_controller.reanchor()
             self._mouse_controller.move_cursor(*self._point_tracker.get_movement())
+            self._mouse_controller.evaluate_dwell()
             for gesture_name in self._gesture_engine.evaluate(metrics):
                 self._mouse_controller.fire_action(gesture_name)
         self._was_active = active_now

@@ -52,7 +52,13 @@ _VALUE_FORMATS = {
     "sensitivity_y": lambda value: f"{value:.3f}",
     "acceleration": lambda value: f"{value:.2f}",
     "motion_threshold_px": lambda value: f"{value:.1f} px",
+    "dwell_time_s": lambda value: f"{value:.1f} s",
 }
+
+# Range for the dwell-click time slider, matching CALIBRATION_RANGES in
+# config.py (kept separate, like the other sliders above, since the GUI
+# owns its own widget ranges).
+_DWELL_TIME_RANGE = (0.3, 5.0)
 
 
 class CalibrationPanel:
@@ -60,6 +66,7 @@ class CalibrationPanel:
         self._config = config
         self.sliders: dict[str, ctk.CTkSlider] = {}
         self._value_labels: dict[str, ctk.CTkLabel] = {}
+        self.dwell_switch: ctk.CTkSwitch | None = None
 
         self.frame = ctk.CTkFrame(parent, fg_color="transparent")
         self._build()
@@ -70,6 +77,7 @@ class CalibrationPanel:
         row = 0
         for field, (label, low, high, description) in SLIDER_SPECS.items():
             row = self._build_row(row, field, label, low, high, description)
+        self._build_dwell_row(row)
 
     def _build_row(
         self, row: int, field: str, label: str, low: float, high: float, description: str
@@ -112,6 +120,37 @@ class CalibrationPanel:
 
         return row
 
+    def _build_dwell_row(self, row: int) -> int:
+        self.dwell_switch = ctk.CTkSwitch(
+            self.frame, text="Clique por permanência (dwell click)"
+        )
+        if self._config.calibration.dwell_click_enabled:
+            self.dwell_switch.select()
+        else:
+            self.dwell_switch.deselect()
+        self.dwell_switch.grid(row=row, column=0, sticky="w", pady=(14, 2))
+        row += 1
+
+        ctk.CTkLabel(
+            self.frame,
+            text="Clica sozinho quando o cursor fica parado em cima de um "
+            "elemento, sem precisar de nenhum gesto.",
+            justify="left",
+            wraplength=380,
+            anchor="w",
+            text_color="gray70",
+        ).grid(row=row, column=0, sticky="ew", pady=(0, 4))
+        row += 1
+
+        return self._build_row(
+            row,
+            "dwell_time_s",
+            "Tempo até clicar",
+            _DWELL_TIME_RANGE[0],
+            _DWELL_TIME_RANGE[1],
+            "Quanto tempo o cursor precisa ficar parado antes do clique automático.",
+        )
+
     # -- config sync ------------------------------------------------------
     def apply_to_config(self) -> None:
         cal = self._config.calibration
@@ -119,6 +158,8 @@ class CalibrationPanel:
         cal.sensitivity_y = round(self.sliders["sensitivity_y"].get(), 4)
         cal.acceleration = round(self.sliders["acceleration"].get(), 2)
         cal.motion_threshold_px = round(self.sliders["motion_threshold_px"].get(), 1)
+        cal.dwell_time_s = round(self.sliders["dwell_time_s"].get(), 1)
+        cal.dwell_click_enabled = bool(self.dwell_switch.get())
 
     # -- per-frame ------------------------------------------------------
     def update(self, metrics: FaceMetrics) -> None:

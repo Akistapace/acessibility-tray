@@ -7,6 +7,10 @@ from facemesh_mouse.mouse_controller import MouseController, accelerate
 class FakeMouse:
     def __init__(self, start=(500, 500)):
         self.position = start
+        self.clicks: list[tuple[object, int]] = []
+
+    def click(self, button, count) -> None:
+        self.clicks.append((button, count))
 
 
 def _config(
@@ -15,6 +19,8 @@ def _config(
     acceleration=0.0,
     motion_threshold_px=0.0,
     yield_resume_after_s=3.0,
+    dwell_click_enabled=False,
+    dwell_time_s=1.0,
 ):
     return AppConfig(
         calibration=CalibrationConfig(
@@ -23,6 +29,8 @@ def _config(
             acceleration=acceleration,
             motion_threshold_px=motion_threshold_px,
             yield_resume_after_s=yield_resume_after_s,
+            dwell_click_enabled=dwell_click_enabled,
+            dwell_time_s=dwell_time_s,
         ),
         gestures={},
     )
@@ -235,3 +243,122 @@ def test_small_cursor_drift_is_not_mistaken_for_a_physical_move():
     controller.move_cursor(4.0, 0.0)
 
     assert controller.yielded is False
+
+
+def test_dwell_click_disabled_by_default_never_fires():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(_config(), (1000, 1000), mouse=mouse, clock=clock)
+    controller.reanchor()
+
+    clock.t = 10.0
+    controller.evaluate_dwell()
+
+    assert mouse.clicks == []
+
+
+def test_dwell_click_does_not_fire_before_the_time_elapses():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()  # starts the timer at t=0
+    clock.t = 0.9
+    controller.evaluate_dwell()
+
+    assert mouse.clicks == []
+
+
+def test_dwell_click_fires_after_holding_still_for_the_configured_time():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()  # starts the timer at t=0
+    clock.t = 1.1
+    controller.evaluate_dwell()
+
+    assert len(mouse.clicks) == 1
+
+
+def test_dwell_click_does_not_repeat_while_still_stationary():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()
+    clock.t = 1.1
+    controller.evaluate_dwell()
+    clock.t = 3.0
+    controller.evaluate_dwell()
+
+    assert len(mouse.clicks) == 1
+
+
+def test_dwell_click_fires_again_after_the_cursor_moves_away_and_settles():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()
+    clock.t = 1.1
+    controller.evaluate_dwell()
+    assert len(mouse.clicks) == 1
+
+    mouse.position = (700, 500)  # moved to a new target
+    clock.t = 1.2
+    controller.evaluate_dwell()  # restarts the timer at the new position
+    clock.t = 2.3
+    controller.evaluate_dwell()
+
+    assert len(mouse.clicks) == 2
+
+
+def test_dwell_click_ignores_movement_within_the_still_tolerance():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()
+    clock.t = 0.5
+    mouse.position = (501, 500)  # within DWELL_STILL_PX -- still "the same spot"
+    controller.evaluate_dwell()
+    clock.t = 1.1
+    controller.evaluate_dwell()
+
+    assert len(mouse.clicks) == 1
+
+
+def test_reanchor_resets_a_stale_dwell_timer():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0), (1000, 1000), mouse=mouse, clock=clock
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()  # timer running at t=0, unfired
+    clock.t = 5.0
+    controller.reanchor()  # e.g. resuming from pause -- must not carry the timer over
+
+    controller.evaluate_dwell()  # this call only restarts the timer, at t=5.0
+    assert mouse.clicks == []
+
+    clock.t = 5.9  # under 1s since the restart
+    controller.evaluate_dwell()
+    assert mouse.clicks == []

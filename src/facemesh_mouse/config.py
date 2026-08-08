@@ -87,6 +87,8 @@ class CalibrationConfig:
     motion_threshold_px: float = 0.0  # cursor movement below this is dropped
     yield_resume_after_s: float = 3.0  # quiet period before resuming after a physical-mouse touch
     click_logging_enabled: bool = True  # record fired actions to clicks.log
+    dwell_click_enabled: bool = False  # click automatically when the cursor holds still
+    dwell_time_s: float = 1.0  # how long it must hold still before the click fires
 
 
 # Accepted range per tuning field, matching the GUI sliders. Values are
@@ -99,6 +101,7 @@ CALIBRATION_RANGES = {
     "acceleration": (0.0, 1.0),
     "motion_threshold_px": (0.0, 10.0),
     "yield_resume_after_s": (1.0, 10.0),
+    "dwell_time_s": (0.3, 5.0),
 }
 
 
@@ -181,6 +184,11 @@ def load_config(path: str | Path) -> AppConfig:
     )
     if not isinstance(click_logging_enabled, bool):
         click_logging_enabled = default.calibration.click_logging_enabled
+    dwell_click_enabled = raw_cal.get(
+        "dwell_click_enabled", default.calibration.dwell_click_enabled
+    )
+    if not isinstance(dwell_click_enabled, bool):
+        dwell_click_enabled = default.calibration.dwell_click_enabled
     calibration = CalibrationConfig(
         sensitivity_x=_clamped(raw_cal, "sensitivity_x", default.calibration.sensitivity_x),
         sensitivity_y=_clamped(raw_cal, "sensitivity_y", default.calibration.sensitivity_y),
@@ -192,6 +200,8 @@ def load_config(path: str | Path) -> AppConfig:
             raw_cal, "yield_resume_after_s", default.calibration.yield_resume_after_s
         ),
         click_logging_enabled=click_logging_enabled,
+        dwell_click_enabled=dwell_click_enabled,
+        dwell_time_s=_clamped(raw_cal, "dwell_time_s", default.calibration.dwell_time_s),
     )
 
     raw_gestures = dict(raw.get("gestures", {}))

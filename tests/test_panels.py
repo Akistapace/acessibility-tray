@@ -41,6 +41,7 @@ def test_calibration_panel_has_a_slider_per_tuning_field(container):
         "sensitivity_y",
         "acceleration",
         "motion_threshold_px",
+        "dwell_time_s",
     }
 
 
@@ -63,6 +64,27 @@ def test_sliders_start_from_the_configs_values(container):
     panel = CalibrationPanel(container, config)
 
     assert panel.sliders["sensitivity_y"].get() == pytest.approx(0.07, abs=1e-3)
+
+
+def test_dwell_switch_starts_from_the_configs_value(container):
+    config = default_config()
+    config.calibration.dwell_click_enabled = True
+
+    panel = CalibrationPanel(container, config)
+
+    assert panel.dwell_switch.get() == 1
+
+
+def test_dwell_switch_and_slider_write_into_the_config(container):
+    config = default_config()
+    panel = CalibrationPanel(container, config)
+
+    panel.dwell_switch.select()
+    panel.sliders["dwell_time_s"].set(2.5)
+    panel.apply_to_config()
+
+    assert config.calibration.dwell_click_enabled is True
+    assert config.calibration.dwell_time_s == pytest.approx(2.5, abs=1e-3)
 
 
 def test_update_is_a_no_op(container):

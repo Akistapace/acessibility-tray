@@ -32,6 +32,9 @@ _ACTIONS = {
 # mouse -- moved the cursor.
 YIELD_DETECT_PX = 2
 
+# Cursor-position tolerance for "holding still" while dwell-clicking.
+DWELL_STILL_PX = 3
+
 
 def clamp(value: float, lo: float, hi: float) -> float:
     return max(lo, min(hi, value))
@@ -75,6 +78,10 @@ class MouseController:
         self._yield_started_at: float | None = None
         self._last_seen_x: float | None = None
         self._last_seen_y: float | None = None
+        self._dwell_anchor_x: float | None = None
+        self._dwell_anchor_y: float | None = None
+        self._dwell_started_at: float | None = None
+        self._dwell_fired = False
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
@@ -89,6 +96,12 @@ class MouseController:
         self._last_seen_y = float(cur_y)
         self.yielded = False
         self._yield_started_at = None
+        # A stale dwell timer from before the transition (e.g. time spent
+        # paused) must not carry over -- it would fire a click the instant
+        # control resumes, on a target the user never dwelled on.
+        self._dwell_anchor_x = None
+        self._dwell_anchor_y = None
+        self._dwell_fired = False
 
     def move_cursor(self, movement_x: float, movement_y: float) -> None:
         """Applies one frame of averaged point movement, in camera pixels."""
@@ -137,6 +150,40 @@ class MouseController:
             self._cursor_y + delta_y * self._screen_h, 0, self._screen_h - 1
         )
         self._mouse.position = (int(self._cursor_x), int(self._cursor_y))
+
+    def evaluate_dwell(self) -> None:
+        """Fires a left click when the cursor holds still for
+        `dwell_time_s`, so a target can be activated by stopping over it
+        instead of performing a gesture. Watches the real OS position, so
+        it applies whether the stillness comes from head tracking or a
+        physical mouse."""
+        cal = self._config.calibration
+        if not cal.dwell_click_enabled:
+            self._dwell_anchor_x = None
+            self._dwell_anchor_y = None
+            self._dwell_fired = False
+            return
+
+        cur_x, cur_y = self._mouse.position
+
+        if (
+            self._dwell_anchor_x is None
+            or abs(cur_x - self._dwell_anchor_x) > DWELL_STILL_PX
+            or abs(cur_y - self._dwell_anchor_y) > DWELL_STILL_PX
+        ):
+            # First frame with dwell enabled, or the cursor moved -- (re)start
+            # the dwell timer at the new position.
+            self._dwell_anchor_x, self._dwell_anchor_y = float(cur_x), float(cur_y)
+            self._dwell_started_at = self._clock()
+            self._dwell_fired = False
+            return
+
+        if self._dwell_fired:
+            return  # already clicked for this stillness; wait for a move
+
+        if self._clock() - self._dwell_started_at >= cal.dwell_time_s:
+            _ACTIONS["left_click"](self._mouse)
+            self._dwell_fired = True
 
     def _update_yield_timer(self, cur_x: int, cur_y: int) -> None:
         if (

@@ -223,3 +223,31 @@ def test_non_bool_click_logging_value_falls_back_to_the_default(tmp_path):
     path.write_text(json.dumps({"calibration": {"click_logging_enabled": "nope"}}))
 
     assert config_mod.load_config(path).calibration.click_logging_enabled is True
+
+
+def test_default_config_has_the_dwell_defaults():
+    cal = config_mod.default_config().calibration
+    assert cal.dwell_click_enabled is False
+    assert cal.dwell_time_s == 1.0
+
+
+def test_dwell_fields_round_trip_and_are_clamped(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.dwell_click_enabled = True
+    original.calibration.dwell_time_s = 2.5
+    config_mod.save_config(path, original)
+
+    loaded = config_mod.load_config(path).calibration
+    assert loaded.dwell_click_enabled is True
+    assert loaded.dwell_time_s == 2.5
+
+    path.write_text(json.dumps({"calibration": {"dwell_time_s": 999}}))
+    assert config_mod.load_config(path).calibration.dwell_time_s == 5.0
+
+
+def test_non_bool_dwell_click_enabled_value_falls_back_to_the_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"dwell_click_enabled": "nope"}}))
+
+    assert config_mod.load_config(path).calibration.dwell_click_enabled is False
