@@ -54,7 +54,7 @@ def test_accelerate_preserves_sign():
 
 
 def test_accelerate_with_zero_acceleration_is_linear():
-    """|d * 5| ** 0 == 1, so the curve collapses to a pass-through."""
+    """(|d| / reference) ** 0 == 1, so the curve collapses to a pass-through."""
     assert accelerate(0.037, 0.0) == pytest.approx(0.037)
 
 
@@ -287,6 +287,26 @@ def test_dwell_click_fires_after_holding_still_for_the_configured_time():
     assert len(mouse.clicks) == 1
 
 
+def test_dwell_click_invokes_on_action_callback():
+    clock = FakeClock()
+    mouse = FakeMouse(start=(500, 500))
+    calls = []
+    controller = MouseController(
+        _config(dwell_click_enabled=True, dwell_time_s=1.0),
+        (1000, 1000),
+        mouse=mouse,
+        clock=clock,
+        on_action=lambda *args: calls.append(args),
+    )
+    controller.reanchor()
+
+    controller.evaluate_dwell()
+    clock.t = 1.1
+    controller.evaluate_dwell()
+
+    assert calls == [("dwell", "left_click", mouse.position)]
+
+
 def test_dwell_click_does_not_repeat_while_still_stationary():
     clock = FakeClock()
     mouse = FakeMouse(start=(500, 500))
@@ -397,3 +417,20 @@ def test_fire_action_does_not_invoke_on_action_for_none():
     controller.fire_action("blink_a")
 
     assert calls == []
+
+
+def test_fire_action_still_clicks_when_on_action_raises():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_click")},
+    )
+
+    def _boom(*_args):
+        raise RuntimeError("simulated feedback failure")
+
+    controller = MouseController(config, (1000, 1000), mouse=mouse, on_action=_boom)
+
+    controller.fire_action("blink_a")
+
+    assert len(mouse.clicks) == 1

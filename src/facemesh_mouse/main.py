@@ -42,10 +42,15 @@ def _make_process_dpi_aware() -> None:
 
 
 def _sync_click_logging(config) -> None:
-    if config.calibration.click_logging_enabled:
-        click_log.enable()
-    else:
-        click_log.disable()
+    try:
+        if config.calibration.click_logging_enabled:
+            click_log.enable()
+        else:
+            click_log.disable()
+    except OSError as exc:
+        # A locked/read-only clicks.log must never block the app from
+        # starting control -- logging is a convenience, not the feature.
+        print(f"facemesh-mouse: click log setup failed ({exc!r})")
 
 
 def main() -> None:
@@ -74,8 +79,8 @@ def main() -> None:
         root.withdraw()
         messagebox.showerror(
             "FaceMesh Mouse",
-            "Nao foi possivel acessar a webcam. Verifique se ela esta "
-            "conectada e se a permissao de camera do Windows esta ativa.",
+            "Não foi possível acessar a webcam. Verifique se ela está "
+            "conectada e se a permissão de câmera do Windows está ativa.",
         )
         sys.exit(1)
 

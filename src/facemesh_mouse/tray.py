@@ -84,12 +84,16 @@ class TrayIcon:
     def _refresh(self) -> None:
         if self._paused:
             self._icon.icon = _ICON_PAUSED
+            self._icon.title = "FaceMesh Mouse -- Pausado"
         elif self._yielded:
             self._icon.icon = _ICON_YIELDED
+            self._icon.title = "FaceMesh Mouse -- Controle pelo mouse físico"
         elif self._no_face:
             self._icon.icon = _ICON_NO_FACE
+            self._icon.title = "FaceMesh Mouse -- Rosto não detectado"
         else:
             self._icon.icon = _ICON_RUNNING
+            self._icon.title = "FaceMesh Mouse"
 
     def run_in_thread(self) -> threading.Thread:
         thread = threading.Thread(target=self._icon.run, daemon=True)

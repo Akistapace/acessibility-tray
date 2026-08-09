@@ -184,6 +184,11 @@ class MouseController:
             return  # already clicked for this stillness; wait for a move
 
         if self._clock() - self._dwell_started_at >= cal.dwell_time_s:
+            if self._on_action is not None:
+                try:
+                    self._on_action("dwell", "left_click", self._mouse.position)
+                except Exception as exc:  # noqa: BLE001 - feedback must never block the click
+                    print(f"facemesh-mouse: on_action failed ({exc!r})")
             _ACTIONS["left_click"](self._mouse)
             self._dwell_fired = True
 
@@ -203,5 +208,8 @@ class MouseController:
     def fire_action(self, gesture_name: str) -> None:
         action = self._config.gestures[gesture_name].action
         if action != "none" and self._on_action is not None:
-            self._on_action(gesture_name, action, self._mouse.position)
+            try:
+                self._on_action(gesture_name, action, self._mouse.position)
+            except Exception as exc:  # noqa: BLE001 - feedback must never block the click
+                print(f"facemesh-mouse: on_action failed ({exc!r})")
         _ACTIONS[action](self._mouse)

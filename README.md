@@ -46,17 +46,19 @@ prévia da câmera e o botão persistente "Iniciar controle do mouse"; à
 direita, três abas.
 
 - **Movimento**: não há mais gravação de extremos — o cursor se move de
-  forma relativa à cabeça, como um mouse de verdade. Quatro sliders ajustam
-  esse movimento: sensibilidade horizontal e vertical (quanto o cursor anda
+  forma relativa à cabeça, como um mouse de verdade. Sliders ajustam esse
+  movimento: sensibilidade horizontal e vertical (quanto o cursor anda
   para cada movimento da cabeça em cada eixo — a vertical costuma precisar
   ser maior, porque a cabeça se move menos nesse eixo), aceleração (deixa
   movimentos pequenos mais lentos e movimentos grandes mais rápidos, para
-  mirar com precisão sem perder velocidade) e limiar de movimento (ignora
+  mirar com precisão sem perder velocidade), limiar de movimento (ignora
   tremores menores que um certo número de pixels, pra ajudar o cursor a
-  parar completamente). Um interruptor liga o clique por permanência
-  (dwell click): com um slider ao lado ajustando o tempo, o clique esquerdo
-  dispara sozinho quando o cursor fica parado sobre um elemento, sem
-  precisar de gesto — desligado por padrão.
+  parar completamente) e quanto tempo esperar parado no mouse físico antes
+  de retomar o controle pela cabeça. Um interruptor liga o clique por
+  permanência (dwell click): com um slider ao lado ajustando o tempo, o
+  clique esquerdo dispara sozinho quando o cursor fica parado sobre um
+  elemento, sem precisar de gesto — desligado por padrão. Outro interruptor
+  liga ou desliga o registro de cliques em `clicks.log`.
 - **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
   aproxima de dispará-lo. Faça a expressão e veja qual barra reage pra saber
   qual é qual (os nomes "A"/"B" de olho e sobrancelha são só internos, sem
