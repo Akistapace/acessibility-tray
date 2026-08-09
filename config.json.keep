@@ -1,0 +1,38 @@
+{
+  "calibration": {
+    "x_min": 0.40722954273223877,
+    "x_max": 0.5112190842628479,
+    "y_min": 0.5838038921356201,
+    "y_max": 0.7984241247177124,
+    "smoothing": 0.7,
+    "deadzone_px": 15.0,
+    "sensitivity": 1.0
+  },
+  "gestures": {
+    "blink_left": {
+      "action": "left_click",
+      "threshold": 0.21,
+      "cooldown_ms": 400
+    },
+    "blink_right": {
+      "action": "right_click",
+      "threshold": 0.21,
+      "cooldown_ms": 400
+    },
+    "blink_both": {
+      "action": "none",
+      "threshold": 0.21,
+      "cooldown_ms": 400
+    },
+    "mouth_open": {
+      "action": "scroll_down",
+      "threshold": 0.35,
+      "cooldown_ms": 600
+    },
+    "eyebrow_raised": {
+      "action": "scroll_up",
+      "threshold": 0.15,
+      "cooldown_ms": 300
+    }
+  }
+}

@@ -1,0 +1,11 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs -r -n1 git update-ref -d)",
+      "Bash(rm -rf .git/refs/original)",
+      "Bash(git reflog *)",
+      "Bash(git gc *)",
+      "Bash(echo \"cleanup done\")"
+    ]
+  }
+}
