@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from facemesh_mouse.tracker import signed_lateral_offset
+from facemesh_mouse.tracker import eye_midpoint, signed_lateral_offset
 
 
 def test_signed_lateral_offset_is_zero_on_the_axis():
@@ -56,3 +56,11 @@ def test_signed_lateral_offset_survives_rotation():
 def test_signed_lateral_offset_degenerate_axis_does_not_divide_by_zero():
     result = signed_lateral_offset((0.6, 0.7), (0.5, 0.5), (0.5, 0.5))
     assert math.isfinite(result)
+
+
+def test_eye_midpoint_uses_the_center_between_the_eyes():
+    pts = [(0.0, 0.0) for _ in range(500)]
+    pts[33] = (0.2, 0.5)
+    pts[263] = (0.8, 0.5)
+
+    assert eye_midpoint(pts) == pytest.approx((0.5, 0.5))

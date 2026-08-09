@@ -159,6 +159,17 @@ class ConfigWindow:
         if metrics is not None:
             height, width = display.shape[:2]
             center = (int(metrics.nose_x * width), int(metrics.nose_y * height))
+            left_eye = (
+                int(metrics.landmarks[33][0] * width),
+                int(metrics.landmarks[33][1] * height),
+            )
+            right_eye = (
+                int(metrics.landmarks[263][0] * width),
+                int(metrics.landmarks[263][1] * height),
+            )
+            cv2.line(display, left_eye, right_eye, (0, 255, 255), 1)
+            cv2.circle(display, left_eye, 2, (0, 255, 0), -1)
+            cv2.circle(display, right_eye, 2, (0, 255, 0), -1)
             cv2.circle(display, center, 5, (0, 0, 255), -1)
         rgb = cv2.cvtColor(display, cv2.COLOR_BGR2RGB)
         self._tk_image = ImageTk.PhotoImage(image=Image.fromarray(rgb))

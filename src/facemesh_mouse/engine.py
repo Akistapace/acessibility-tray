@@ -99,8 +99,21 @@ class Engine:
         return self._mouse_controller
 
     def open_camera(self) -> bool:
-        self._camera = cv2.VideoCapture(self._camera_index, cv2.CAP_DSHOW)
-        return self._camera.isOpened()
+        for backend in (cv2.CAP_DSHOW, cv2.CAP_ANY):
+            try:
+                self._camera = cv2.VideoCapture(self._camera_index, backend)
+            except (KeyboardInterrupt, OSError, cv2.error):
+                self._camera = None
+                return False
+
+            if self._camera is not None and self._camera.isOpened():
+                return True
+
+            if self._camera is not None:
+                self._camera.release()
+                self._camera = None
+
+        return False
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
@@ -151,10 +164,10 @@ class Engine:
 
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         height, width = gray.shape[:2]
-        nose = (metrics.nose_x * width, metrics.nose_y * height)
+        anchor = (metrics.nose_x * width, metrics.nose_y * height)
         head_size = _head_size_px(metrics, width, height)
         candidates = _seed_candidates(metrics, width, height)
-        self._point_tracker.update(gray, nose, head_size, candidates)
+        self._point_tracker.update(gray, anchor, head_size, candidates)
 
         self._drive_control(metrics)
 

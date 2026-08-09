@@ -75,6 +75,13 @@ def _eye_aspect_ratio(pts: list) -> float:
     return vertical / horizontal
 
 
+def eye_midpoint(pts: list) -> tuple[float, float]:
+    """Center between the two outer eye corners, used as the head anchor."""
+    left = pts[EYE_OUTER_A]
+    right = pts[EYE_OUTER_B]
+    return ((left[0] + right[0]) / 2.0, (left[1] + right[1]) / 2.0)
+
+
 def signed_lateral_offset(point, axis_start, axis_end) -> float:
     """Signed perpendicular distance from `point` to the line through
     `axis_start` -> `axis_end`. All arguments are (x, y) tuples. Sign is
@@ -138,9 +145,10 @@ class FaceTracker:
             / face_width
         )
 
+        eye_center = eye_midpoint(pts)
         metrics = FaceMetrics(
-            nose_x=pts[NOSE_TIP][0],
-            nose_y=pts[NOSE_TIP][1],
+            nose_x=eye_center[0],
+            nose_y=eye_center[1],
             ear_a=ear_a,
             ear_b=ear_b,
             mouth_open_ratio=mouth_open_ratio,
