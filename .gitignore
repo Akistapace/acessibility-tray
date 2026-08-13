@@ -8,3 +8,4 @@ dist/
 *.spec
 .superpowers/
 clicks.log*
+.claude/worktrees/
