@@ -77,7 +77,7 @@ class CalibrationPanel:
         self.dwell_switch: ctk.CTkSwitch | None = None
         self._click_logging_var: ctk.BooleanVar | None = None
 
-        self.frame = ctk.CTkFrame(parent, fg_color="transparent")
+        self.frame = ctk.CTkScrollableFrame(parent, fg_color="transparent")
         self._build()
 
     # -- widgets -------------------------------------------------------
