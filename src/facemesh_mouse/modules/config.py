@@ -115,6 +115,25 @@ def _clamped(raw_cal: dict, field: str, fallback: float) -> float:
 
 
 @dataclass
+class KeyboardButtonConfig:
+    """Screen position of the floating keyboard-launcher button, in pixels
+    (top-left corner). `None` means "never dragged" -- the button falls
+    back to its default bottom-right corner (see keyboard_button.py)."""
+
+    x: float | None = None
+    y: float | None = None
+
+
+def _optional_float(value) -> float | None:
+    if value is None:
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+@dataclass
 class GestureConfig:
     action: str = "none"
     threshold: float = 0.2
@@ -126,6 +145,7 @@ class GestureConfig:
 class AppConfig:
     calibration: CalibrationConfig = field(default_factory=CalibrationConfig)
     gestures: dict = field(default_factory=dict)
+    keyboard_button: KeyboardButtonConfig = field(default_factory=KeyboardButtonConfig)
 
 
 def default_config() -> AppConfig:
@@ -214,7 +234,13 @@ def load_config(path: str | Path) -> AppConfig:
         for name in GESTURE_NAMES
     }
 
-    return AppConfig(calibration=calibration, gestures=gestures)
+    raw_kb = raw.get("keyboard_button", {})
+    keyboard_button = KeyboardButtonConfig(
+        x=_optional_float(raw_kb.get("x")),
+        y=_optional_float(raw_kb.get("y")),
+    )
+
+    return AppConfig(calibration=calibration, gestures=gestures, keyboard_button=keyboard_button)
 
 
 def save_config(path: str | Path, config: AppConfig) -> None:
@@ -223,5 +249,6 @@ def save_config(path: str | Path, config: AppConfig) -> None:
     data = {
         "calibration": asdict(config.calibration),
         "gestures": {name: asdict(cfg) for name, cfg in config.gestures.items()},
+        "keyboard_button": asdict(config.keyboard_button),
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")

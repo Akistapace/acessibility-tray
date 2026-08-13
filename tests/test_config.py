@@ -251,3 +251,42 @@ def test_non_bool_dwell_click_enabled_value_falls_back_to_the_default(tmp_path):
     path.write_text(json.dumps({"calibration": {"dwell_click_enabled": "nope"}}))
 
     assert config_mod.load_config(path).calibration.dwell_click_enabled is False
+
+
+def test_default_config_has_no_saved_keyboard_button_position():
+    kb = config_mod.default_config().keyboard_button
+    assert kb.x is None
+    assert kb.y is None
+
+
+def test_keyboard_button_position_round_trips(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.keyboard_button.x = 120.5
+    original.keyboard_button.y = 640.0
+
+    config_mod.save_config(path, original)
+    loaded = config_mod.load_config(path)
+
+    assert loaded.keyboard_button.x == 120.5
+    assert loaded.keyboard_button.y == 640.0
+
+
+def test_missing_keyboard_button_section_defaults_to_none(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {}, "gestures": {}}))
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.keyboard_button.x is None
+    assert loaded.keyboard_button.y is None
+
+
+def test_non_numeric_keyboard_button_position_falls_back_to_none(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"keyboard_button": {"x": "nope", "y": None}}))
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.keyboard_button.x is None
+    assert loaded.keyboard_button.y is None
