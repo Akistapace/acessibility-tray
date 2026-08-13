@@ -89,7 +89,10 @@ def main() -> None:
     screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
     engine.start(screen_size)
 
-    keyboard_button = KeyboardButton(root, app_config, CONFIG_PATH, screen_size)
+    try:
+        KeyboardButton(root, app_config, CONFIG_PATH, screen_size)
+    except Exception as exc:  # noqa: BLE001 - a missing button must never block startup
+        print(f"facemesh-mouse: floating keyboard button failed ({exc!r})")
 
     config_window = ConfigWindow(
         root,

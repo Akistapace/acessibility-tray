@@ -110,9 +110,25 @@ class KeyboardButton:
         if is_click(self._press_root, (event.x_root, event.y_root)):
             virtual_keyboard.open_virtual_keyboard()
         else:
-            self._config.keyboard_button.x = float(self._window.winfo_x())
-            self._config.keyboard_button.y = float(self._window.winfo_y())
-            config_mod.save_config(self._config_path, self._config)
+            x = float(self._window.winfo_x())
+            y = float(self._window.winfo_y())
+            # Keep the in-memory object in sync too -- ConfigWindow reads
+            # this field fresh at its own save time (see config_gui.py).
+            self._config.keyboard_button.x = x
+            self._config.keyboard_button.y = y
+            # Never write self._config's calibration/gestures back to disk:
+            # main.py's copy of it goes stale the moment the user saves via
+            # the config window (that flow only updates ConfigWindow's own
+            # deep copy and the engine's config, never this object), so a
+            # whole-object write here would silently revert the user's
+            # settings. Read-modify-write against the file itself instead.
+            try:
+                on_disk = config_mod.load_config(self._config_path)
+                on_disk.keyboard_button.x = x
+                on_disk.keyboard_button.y = y
+                config_mod.save_config(self._config_path, on_disk)
+            except Exception as exc:  # noqa: BLE001 - a failed save must never crash the drag handler
+                print(f"facemesh-mouse: could not save keyboard button position ({exc!r})")
         self._press_root = None
         self._window_start = None
 

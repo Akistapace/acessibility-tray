@@ -1,5 +1,6 @@
 import ctypes
 
+from facemesh_mouse.modules import config as config_mod
 from facemesh_mouse.modules.config import default_config
 from facemesh_mouse.ui import keyboard_button
 from facemesh_mouse.ui.click_feedback import GWL_EXSTYLE, WS_EX_TRANSPARENT
@@ -47,6 +48,12 @@ def test_resolve_position_falls_back_when_the_saved_spot_is_off_the_smaller_scre
     assert keyboard_button.resolve_position(
         1900.0, 1000.0, 1000, 800
     ) == keyboard_button.default_position(1000, 800)
+
+
+def test_resolve_position_accepts_the_saved_spot_exactly_at_the_far_edge():
+    screen_w, screen_h = 1000, 800
+    edge_x, edge_y = screen_w - keyboard_button.SIZE, screen_h - keyboard_button.SIZE
+    assert keyboard_button.resolve_position(edge_x, edge_y, screen_w, screen_h) == (edge_x, edge_y)
 
 
 def test_button_builds_a_topmost_non_click_through_window(container):
@@ -100,5 +107,29 @@ def test_a_large_release_saves_the_new_position_without_opening(monkeypatch, con
     assert config_path.exists()
     assert config.keyboard_button.x is not None
     assert config.keyboard_button.y is not None
+
+    button.destroy()
+
+
+def test_dragging_does_not_clobber_settings_saved_after_startup(container, tmp_path):
+    """A user who saves calibration via the config window, then drags the
+    button, must not have that calibration silently reverted on disk --
+    KeyboardButton must never write a stale whole-AppConfig snapshot."""
+    path = tmp_path / "config.json"
+    saved = default_config()
+    saved.calibration.sensitivity_x = 0.09  # what the config window wrote
+    config_mod.save_config(path, saved)
+
+    stale = default_config()  # what main.py's app_config still holds
+    button = keyboard_button.KeyboardButton(container, stale, path, (1000, 800))
+
+    button._on_press(_FakeEvent(500, 500))
+    button._on_motion(_FakeEvent(560, 500))
+    button._on_release(_FakeEvent(560, 500))
+
+    reloaded = config_mod.load_config(path)
+    assert reloaded.calibration.sensitivity_x == 0.09
+    assert reloaded.keyboard_button.x is not None
+    assert reloaded.keyboard_button.y is not None
 
     button.destroy()
