@@ -7,7 +7,6 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
-from . import virtual_keyboard
 from .modules import click_log
 from .modules import config as config_mod
 from .modules import single_instance
@@ -15,6 +14,7 @@ from .modules.engine import Engine
 from .modules.hotkeys import HotkeyListener
 from .ui import click_feedback
 from .ui.config_gui import ConfigWindow, create_root
+from .ui.keyboard_button import KeyboardButton
 from .ui.tray import TrayIcon
 
 CONFIG_PATH = "config.json"
@@ -89,6 +89,8 @@ def main() -> None:
     screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
     engine.start(screen_size)
 
+    keyboard_button = KeyboardButton(root, app_config, CONFIG_PATH, screen_size)
+
     config_window = ConfigWindow(
         root,
         engine,
@@ -122,7 +124,6 @@ def main() -> None:
     tray = TrayIcon(
         on_toggle_pause=toggle_pause,
         on_open_config=open_config,
-        on_open_keyboard=virtual_keyboard.open_virtual_keyboard,
         on_quit=quit_app,
     )
     tray.run_in_thread()

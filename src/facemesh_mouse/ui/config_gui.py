@@ -16,7 +16,6 @@ import customtkinter as ctk
 import cv2
 from PIL import Image, ImageTk
 
-from .. import virtual_keyboard
 from ..modules import config as config_mod
 from ..modules.config import AppConfig
 from ..modules.engine import Engine
@@ -37,11 +36,6 @@ _HELP_TEXT = (
     "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
     "quiser disparo imediato.\n\n"
     "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça.\n\n"
-    "O botão \"Abrir Teclado\" acima abre o teclado virtual do Windows -- útil "
-    "aqui com o mouse físico ou a ajuda de outra pessoa, já que esta janela "
-    "pausa o controle pela cabeça enquanto está aberta; para abrir o teclado "
-    "pelo cursor controlado pela cabeça, use o mesmo item no menu da "
-    "bandeja.\n\n"
     "Atalhos\n\n"
     "Ctrl+Alt+P pausa e retoma. Use como quem levanta o mouse da mesa: o "
     "cursor congela, você reposiciona a cabeça numa posição confortável, e ao "
@@ -77,6 +71,11 @@ class ConfigWindow:
         # hands this copy to `on_start`, which calls `engine.update_config`,
         # so edits still reach the engine -- but only on an explicit save.
         self._config = copy.deepcopy(config)
+        # Not part of the deep copy: no panel in this window reads or edits
+        # the keyboard button's position, so there's nothing to buffer --
+        # `_start_and_hide` reads it fresh from here at save time, so a
+        # drag that happened after this window was built is never lost.
+        self._live_config = config
         self._config_path = config_path
         self._on_start = on_start
         self._tk_image = None
@@ -124,14 +123,6 @@ class ConfigWindow:
 
         self._gestures = GesturePanel(tabs.tab("Gestos"), self._config)
         self._gestures.frame.pack(fill="both", expand=True)
-
-        ctk.CTkButton(
-            tabs.tab("Ajuda"),
-            text="Abrir Teclado",
-            height=44,
-            font=("Segoe UI", 14, "bold"),
-            command=virtual_keyboard.open_virtual_keyboard,
-        ).pack(fill="x", padx=6, pady=(6, 0))
 
         ctk.CTkLabel(
             tabs.tab("Ajuda"),
@@ -193,6 +184,7 @@ class ConfigWindow:
     def _start_and_hide(self) -> None:
         self._calibration.apply_to_config()
         self._gestures.apply_to_config()
+        self._config.keyboard_button = self._live_config.keyboard_button
         config_mod.save_config(self._config_path, self._config)
         self._on_start(self._config)
         self._root.withdraw()

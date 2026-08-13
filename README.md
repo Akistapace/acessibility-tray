@@ -10,9 +10,9 @@ expressão por alguns décimos de segundo para ela valer, o que impede que
 piscadas naturais virem cliques. Depois de configurar, o tracking continua
 rodando em segundo plano (sem janela visível), com ícone na bandeja e
 atalhos globais. O app não tem teclado próprio, mas o teclado virtual do
-Windows pode ser aberto pelo ícone da bandeja (o caminho acessível pelo
-cursor controlado pela cabeça) ou por um botão na aba Ajuda da
-configuração, pra quem também precisar digitar.
+Windows pode ser aberto por um círculo flutuante e arrastável que fica
+sempre visível na tela (canto inferior direito por padrão), pra quem
+também precisar digitar.
 
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
 (design original, com os cinco gestos v1 e sem `hold_ms`),
@@ -24,7 +24,10 @@ lugar da calibração de quatro pontos) e
 [docs/superpowers/specs/2026-08-07-mouse-yield-and-click-feedback-design.md](docs/superpowers/specs/2026-08-07-mouse-yield-and-click-feedback-design.md)
 (ceder controle ao mouse físico, pulso visual de clique e log local) e
 [docs/superpowers/specs/2026-08-13-virtual-keyboard-launcher-design.md](docs/superpowers/specs/2026-08-13-virtual-keyboard-launcher-design.md)
-(abrir o teclado virtual do Windows pelo ícone da bandeja ou pela aba Ajuda)
+(lançar o teclado virtual do Windows) e
+[docs/superpowers/specs/2026-08-13-floating-keyboard-button-design.md](docs/superpowers/specs/2026-08-13-floating-keyboard-button-design.md)
+(círculo flutuante e arrastável como único ponto de entrada, no lugar do
+item na bandeja e do botão na aba Ajuda)
 para o design completo.
 
 ## Requisitos
@@ -72,11 +75,7 @@ direita, três abas.
   ação de mouse de cada gesto e, no slider ao lado, por quanto tempo a
   expressão precisa ser segurada pra valer (padrão 400ms — bem acima de uma
   piscada natural, que dura ~100-150ms).
-- **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela, com
-  um botão "Abrir Teclado" para quem estiver usando mouse físico ou
-  trackpad, ou for ajudado por outra pessoa (essa janela pausa o controle
-  pela cabeça enquanto está aberta -- veja abaixo o caminho acessível pela
-  cabeça, pelo ícone da bandeja).
+- **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
 Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar controle
 do mouse" (ou feche a janela) — a janela some e o controle do mouse fica
@@ -92,11 +91,16 @@ está ativo, o app cede o controle na hora: o cursor obedece o mouse físico e
 a cabeça é ignorada até você parar de mexer por alguns segundos (padrão 3s,
 ajustável em Movimento). O ícone da bandeja fica azul enquanto isso.
 
-Ícone na bandeja: Pausar/Retomar, Reabrir Config, Abrir Teclado, Sair.
-"Abrir Teclado" é o caminho acessível pelo cursor controlado pela cabeça
-pra abrir o teclado virtual do Windows, já que abrir a config pausa esse
-controle. Clique com o botão esquerdo no ícone também reabre a config
-direto; botão direito mostra o menu completo.
+Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair. Clique com o botão
+esquerdo no ícone também reabre a config direto; botão direito mostra o
+menu completo.
+
+O teclado virtual do Windows é aberto por um círculo azul flutuante, sempre
+visível por cima de tudo, no canto inferior direito por padrão -- inclusive
+enquanto a config está aberta, já que abrir a config pausa o controle pela
+cabeça. Clique nele (funciona pelo cursor controlado pela cabeça também)
+para abrir o teclado; com o mouse físico ou trackpad, arraste-o para
+qualquer lugar da tela -- a posição escolhida fica salva entre sessões.
 Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
 Cada clique disparado por gesto mostra um pulso azul na posição do cursor,

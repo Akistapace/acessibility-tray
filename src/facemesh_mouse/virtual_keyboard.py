@@ -2,8 +2,8 @@
 
 The app doesn't build its own on-screen keyboard -- Windows already ships
 one that's accessible from any focused app. This module only makes it
-reachable through the same head-tracked cursor the rest of the app uses
-(tray menu, config window button).
+reachable through the same head-tracked cursor the rest of the app uses --
+called from the floating keyboard button (see ui/keyboard_button.py).
 """
 from __future__ import annotations
 
