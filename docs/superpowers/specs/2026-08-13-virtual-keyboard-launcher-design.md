@@ -42,8 +42,13 @@ open/closed state:
   where `TrayIcon` is constructed.
 - **`config_gui.py`**: a `CTkButton` "Abrir Teclado" on the existing "Ajuda"
   tab, above the help text, `command=virtual_keyboard.open_virtual_keyboard`.
-  This is the primary target for imprecise cursor control — a full-width
-  button is far easier to land a head-tracked click on than the tray icon.
+  Opening the config window (`main.py`'s `open_config()`) clears
+  `engine.control_enabled`, which `engine.py` gates cursor movement, dwell
+  click, and gesture firing on — so head-tracked cursor control is frozen
+  the whole time the window (and this tab) is visible. That makes the tray
+  menu item the only path a head-only user can reach on their own; this
+  button is a secondary access point for a physical mouse, a trackpad, or a
+  caregiver assisting the user.
 
 Closing the keyboard is via `osk.exe`'s own window controls, clickable
 through the app's existing cursor — no close/toggle path is built.

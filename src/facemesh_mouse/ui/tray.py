@@ -1,4 +1,4 @@
-"""System tray icon: Pause/Resume, Open Config, Quit.
+"""System tray icon: Pause/Resume, Open Config, Open Keyboard, Quit.
 
 Icon color reflects one state, chosen by precedence (highest first): paused
 overrides everything else the user might also be seeing (a face, a physical
@@ -33,10 +33,12 @@ class TrayIcon:
         self,
         on_toggle_pause: Callable[[], bool],
         on_open_config: Callable[[], None],
+        on_open_keyboard: Callable[[], None],
         on_quit: Callable[[], None],
     ) -> None:
         self._on_toggle_pause = on_toggle_pause
         self._on_open_config = on_open_config
+        self._on_open_keyboard = on_open_keyboard
         self._on_quit = on_quit
         self._paused = False
         self._no_face = False
@@ -48,6 +50,7 @@ class TrayIcon:
             menu=pystray.Menu(
                 pystray.MenuItem(self._pause_label, self._toggle_pause),
                 pystray.MenuItem("Reabrir Config", self._open_config, default=True),
+                pystray.MenuItem("Abrir Teclado", self._open_keyboard),
                 pystray.MenuItem("Sair", self._quit),
             ),
         )
@@ -66,6 +69,9 @@ class TrayIcon:
 
     def _open_config(self, _icon=None, _item=None) -> None:
         self._on_open_config()
+
+    def _open_keyboard(self, _icon=None, _item=None) -> None:
+        self._on_open_keyboard()
 
     def _quit(self, _icon=None, _item=None) -> None:
         self._on_quit()

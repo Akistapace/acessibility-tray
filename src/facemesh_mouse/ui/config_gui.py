@@ -16,6 +16,7 @@ import customtkinter as ctk
 import cv2
 from PIL import Image, ImageTk
 
+from .. import virtual_keyboard
 from ..modules import config as config_mod
 from ..modules.config import AppConfig
 from ..modules.engine import Engine
@@ -36,6 +37,11 @@ _HELP_TEXT = (
     "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
     "quiser disparo imediato.\n\n"
     "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça.\n\n"
+    "O botão \"Abrir Teclado\" acima abre o teclado virtual do Windows -- útil "
+    "aqui com o mouse físico ou a ajuda de outra pessoa, já que esta janela "
+    "pausa o controle pela cabeça enquanto está aberta; para abrir o teclado "
+    "pelo cursor controlado pela cabeça, use o mesmo item no menu da "
+    "bandeja.\n\n"
     "Atalhos\n\n"
     "Ctrl+Alt+P pausa e retoma. Use como quem levanta o mouse da mesa: o "
     "cursor congela, você reposiciona a cabeça numa posição confortável, e ao "
@@ -118,6 +124,14 @@ class ConfigWindow:
 
         self._gestures = GesturePanel(tabs.tab("Gestos"), self._config)
         self._gestures.frame.pack(fill="both", expand=True)
+
+        ctk.CTkButton(
+            tabs.tab("Ajuda"),
+            text="Abrir Teclado",
+            height=44,
+            font=("Segoe UI", 14, "bold"),
+            command=virtual_keyboard.open_virtual_keyboard,
+        ).pack(fill="x", padx=6, pady=(6, 0))
 
         ctk.CTkLabel(
             tabs.tab("Ajuda"),
