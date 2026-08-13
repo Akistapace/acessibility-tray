@@ -94,6 +94,7 @@ ajustável em Movimento). O ícone da bandeja fica azul enquanto isso.
 Ícone na bandeja: Pausar/Retomar, Reabrir Config, Sair. Clique com o botão
 esquerdo no ícone também reabre a config direto; botão direito mostra o
 menu completo.
+Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
 O teclado virtual do Windows é aberto por um círculo azul flutuante, sempre
 visível por cima de tudo, no canto inferior direito por padrão -- inclusive
@@ -101,7 +102,6 @@ enquanto a config está aberta, já que abrir a config pausa o controle pela
 cabeça. Clique nele (funciona pelo cursor controlado pela cabeça também)
 para abrir o teclado; com o mouse físico ou trackpad, arraste-o para
 qualquer lugar da tela -- a posição escolhida fica salva entre sessões.
-Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
 Cada clique disparado por gesto mostra um pulso azul na posição do cursor,
 pra confirmar visualmente que o clique aconteceu — útil porque piscar ou

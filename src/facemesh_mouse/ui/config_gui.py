@@ -184,7 +184,8 @@ class ConfigWindow:
     def _start_and_hide(self) -> None:
         self._calibration.apply_to_config()
         self._gestures.apply_to_config()
-        self._config.keyboard_button = self._live_config.keyboard_button
+        self._config.keyboard_button.x = self._live_config.keyboard_button.x
+        self._config.keyboard_button.y = self._live_config.keyboard_button.y
         config_mod.save_config(self._config_path, self._config)
         self._on_start(self._config)
         self._root.withdraw()
