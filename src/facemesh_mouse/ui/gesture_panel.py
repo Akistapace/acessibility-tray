@@ -14,10 +14,10 @@ from dataclasses import dataclass
 
 import customtkinter as ctk
 
-from . import config as config_mod
-from .config import AppConfig
-from .gestures import trigger_progress
-from .tracker import FaceMetrics
+from ..modules import config as config_mod
+from ..modules.config import AppConfig
+from ..modules.gestures import trigger_progress
+from ..modules.tracker import FaceMetrics
 
 GESTURE_LABELS = {
     "blink_a": "Piscar olho A",

@@ -16,10 +16,10 @@ import customtkinter as ctk
 import cv2
 from PIL import Image, ImageTk
 
-from . import config as config_mod
+from ..modules import config as config_mod
+from ..modules.config import AppConfig
+from ..modules.engine import Engine
 from .calibration_panel import CalibrationPanel
-from .config import AppConfig
-from .engine import Engine
 from .gesture_panel import GesturePanel
 
 PREVIEW_SIZE = (480, 360)

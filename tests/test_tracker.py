@@ -2,7 +2,7 @@ import math
 
 import pytest
 
-from facemesh_mouse.tracker import eye_midpoint, signed_lateral_offset
+from facemesh_mouse.modules.tracker import eye_midpoint, signed_lateral_offset
 
 
 def test_signed_lateral_offset_is_zero_on_the_axis():

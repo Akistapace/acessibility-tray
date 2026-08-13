@@ -1,7 +1,7 @@
 import pytest
 
-from facemesh_mouse.config import AppConfig, CalibrationConfig
-from facemesh_mouse.mouse_controller import MouseController, accelerate
+from facemesh_mouse.modules.config import AppConfig, CalibrationConfig
+from facemesh_mouse.modules.mouse_controller import MouseController, accelerate
 
 
 class FakeMouse:
@@ -89,7 +89,7 @@ def test_cursor_follows_the_user_through_the_real_mirroring_chain():
     import cv2
     import numpy as np
 
-    from facemesh_mouse.point_tracker import PointTracker
+    from facemesh_mouse.modules.point_tracker import PointTracker
 
     rng = np.random.default_rng(0)
     raw = cv2.GaussianBlur(rng.integers(0, 255, (240, 320), dtype=np.uint8), (5, 5), 0)
@@ -384,7 +384,7 @@ def test_reanchor_resets_a_stale_dwell_timer():
     assert mouse.clicks == []
 
 
-from facemesh_mouse.config import GestureConfig
+from facemesh_mouse.modules.config import GestureConfig
 
 
 def test_fire_action_invokes_on_action_callback():

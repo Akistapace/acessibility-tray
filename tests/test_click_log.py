@@ -1,6 +1,6 @@
 import pytest
 
-from facemesh_mouse import click_log
+from facemesh_mouse.modules import click_log
 
 
 @pytest.fixture(autouse=True)

@@ -2,7 +2,7 @@ import ctypes
 
 import pytest
 
-from facemesh_mouse import click_feedback
+from facemesh_mouse.ui import click_feedback
 
 
 def test_show_pulse_creates_a_click_through_topmost_window(container):

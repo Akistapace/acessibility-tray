@@ -9,8 +9,8 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from .config import AppConfig
-from .tracker import FaceMetrics
+from ..modules.config import AppConfig
+from ..modules.tracker import FaceMetrics
 
 # field name -> (label, from_, to, description). Order here is the order the
 # sliders are drawn in.

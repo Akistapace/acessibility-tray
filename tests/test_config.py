@@ -1,6 +1,6 @@
 import json
 
-from facemesh_mouse import config as config_mod
+from facemesh_mouse.modules import config as config_mod
 
 
 def test_default_config_has_all_gestures():

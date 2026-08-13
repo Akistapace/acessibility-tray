@@ -1,9 +1,9 @@
 import pytest
 
-from facemesh_mouse import config as config_mod
-from facemesh_mouse.config import AppConfig, CalibrationConfig, GestureConfig
-from facemesh_mouse.gestures import GestureEngine, trigger_progress
-from facemesh_mouse.tracker import FaceMetrics
+from facemesh_mouse.modules import config as config_mod
+from facemesh_mouse.modules.config import AppConfig, CalibrationConfig, GestureConfig
+from facemesh_mouse.modules.gestures import GestureEngine, trigger_progress
+from facemesh_mouse.modules.tracker import FaceMetrics
 
 
 def _metrics(ear_a=0.3, ear_b=0.3, mouth=0.1, eyebrow=0.05, eyebrow_b=None, mouth_shift=0.0):

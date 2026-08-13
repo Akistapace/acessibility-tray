@@ -7,14 +7,14 @@ from pathlib import Path
 import tkinter as tk
 from tkinter import messagebox
 
-from . import click_feedback
-from . import click_log
-from . import config as config_mod
-from . import single_instance
-from .config_gui import ConfigWindow, create_root
-from .engine import Engine
-from .hotkeys import HotkeyListener
-from .tray import TrayIcon
+from .modules import click_log
+from .modules import config as config_mod
+from .modules import single_instance
+from .modules.engine import Engine
+from .modules.hotkeys import HotkeyListener
+from .ui import click_feedback
+from .ui.config_gui import ConfigWindow, create_root
+from .ui.tray import TrayIcon
 
 CONFIG_PATH = "config.json"
 

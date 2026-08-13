@@ -1,8 +1,8 @@
 from unittest.mock import MagicMock, patch
 
-from facemesh_mouse.config import default_config
-from facemesh_mouse.engine import Engine
-from facemesh_mouse.tracker import FaceMetrics
+from facemesh_mouse.modules.config import default_config
+from facemesh_mouse.modules.engine import Engine
+from facemesh_mouse.modules.tracker import FaceMetrics
 
 
 def _metrics(nose_x=0.5, nose_y=0.5):
@@ -93,7 +93,7 @@ def test_mouse_controller_property_exposes_the_controller_after_start():
     assert engine.mouse_controller is engine._mouse_controller
 
 
-@patch("facemesh_mouse.engine.cv2.VideoCapture", side_effect=KeyboardInterrupt)
+@patch("facemesh_mouse.modules.engine.cv2.VideoCapture", side_effect=KeyboardInterrupt)
 def test_open_camera_returns_false_when_user_interrupts_camera_start(mock_video_capture):
     engine = Engine(default_config())
 

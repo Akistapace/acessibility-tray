@@ -2,9 +2,9 @@ import tkinter as tk
 
 import pytest
 
-from facemesh_mouse.calibration_panel import CalibrationPanel
-from facemesh_mouse.config import default_config
-from facemesh_mouse.tracker import FaceMetrics
+from facemesh_mouse.modules.config import default_config
+from facemesh_mouse.modules.tracker import FaceMetrics
+from facemesh_mouse.ui.calibration_panel import CalibrationPanel
 
 
 def _metrics(nose_x=0.5, nose_y=0.5):
@@ -114,8 +114,8 @@ def test_update_is_a_no_op(container):
     assert panel.frame.winfo_exists()
 
 
-from facemesh_mouse.config import GESTURE_NAMES
-from facemesh_mouse.gesture_panel import ACTION_LABELS, GESTURE_LABELS, GesturePanel
+from facemesh_mouse.modules.config import GESTURE_NAMES
+from facemesh_mouse.ui.gesture_panel import ACTION_LABELS, GESTURE_LABELS, GesturePanel
 
 
 def test_gesture_panel_has_a_row_per_gesture(container):

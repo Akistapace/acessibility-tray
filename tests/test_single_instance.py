@@ -2,7 +2,7 @@ import socket
 import threading
 import time
 
-from facemesh_mouse import single_instance
+from facemesh_mouse.modules import single_instance
 
 
 def _free_port() -> int:

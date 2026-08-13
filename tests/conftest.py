@@ -15,7 +15,7 @@ ctk = pytest.importorskip("customtkinter")
 
 @pytest.fixture(scope="session")
 def root():
-    from facemesh_mouse.config_gui import create_root
+    from facemesh_mouse.ui.config_gui import create_root
 
     try:
         window = create_root()

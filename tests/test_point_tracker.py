@@ -2,7 +2,7 @@ import cv2
 import numpy as np
 import pytest
 
-from facemesh_mouse.point_tracker import (
+from facemesh_mouse.modules.point_tracker import (
     MIN_ADD_DISTANCE_FRACTION,
     PointTracker,
     PRUNING_CELL_FRACTION,
