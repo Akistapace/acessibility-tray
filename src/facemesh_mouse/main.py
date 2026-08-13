@@ -11,6 +11,7 @@ from . import click_feedback
 from . import click_log
 from . import config as config_mod
 from . import single_instance
+from . import virtual_keyboard
 from .config_gui import ConfigWindow, create_root
 from .engine import Engine
 from .hotkeys import HotkeyListener
@@ -121,6 +122,7 @@ def main() -> None:
     tray = TrayIcon(
         on_toggle_pause=toggle_pause,
         on_open_config=open_config,
+        on_open_keyboard=virtual_keyboard.open_virtual_keyboard,
         on_quit=quit_app,
     )
     tray.run_in_thread()
