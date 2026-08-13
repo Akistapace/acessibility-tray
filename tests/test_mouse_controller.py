@@ -8,9 +8,21 @@ class FakeMouse:
     def __init__(self, start=(500, 500)):
         self.position = start
         self.clicks: list[tuple[object, int]] = []
+        self.presses: list[object] = []
+        self.releases: list[object] = []
+        self.scrolls: list[tuple[int, int]] = []
 
     def click(self, button, count) -> None:
         self.clicks.append((button, count))
+
+    def press(self, button) -> None:
+        self.presses.append(button)
+
+    def release(self, button) -> None:
+        self.releases.append(button)
+
+    def scroll(self, dx, dy) -> None:
+        self.scrolls.append((dx, dy))
 
 
 def _config(
@@ -434,3 +446,149 @@ def test_fire_action_still_clicks_when_on_action_raises():
     controller.fire_action("blink_a")
 
     assert len(mouse.clicks) == 1
+
+
+def test_fire_action_left_drag_presses_but_does_not_click():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_drag")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.fire_action("blink_a")
+
+    assert len(mouse.presses) == 1
+    assert mouse.clicks == []
+
+
+def test_release_action_releases_a_pressed_drag():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_drag")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.fire_action("blink_a")
+    controller.release_action("blink_a")
+
+    assert len(mouse.releases) == 1
+
+
+def test_release_action_is_a_noop_for_a_gesture_that_never_pressed():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_drag")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.release_action("blink_a")
+
+    assert mouse.releases == []
+
+
+def test_release_action_is_a_noop_for_a_non_drag_action():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_click")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.fire_action("blink_a")
+    controller.release_action("blink_a")
+
+    assert mouse.releases == []
+
+
+def test_release_all_holds_releases_a_pressed_drag():
+    mouse = FakeMouse()
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_drag")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.fire_action("blink_a")
+    controller.release_all_holds()
+
+    assert len(mouse.releases) == 1
+
+
+def test_release_all_holds_is_a_noop_when_nothing_is_pressed():
+    mouse = FakeMouse()
+    config = AppConfig(calibration=CalibrationConfig(), gestures={})
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+
+    controller.release_all_holds()
+
+    assert mouse.releases == []
+
+
+def test_freeze_cursor_stops_move_cursor_from_moving_the_mouse():
+    mouse = FakeMouse(start=(500, 500))
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"eyebrow_both": GestureConfig(action="freeze_cursor")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    controller.fire_action("eyebrow_both")
+    controller.move_cursor(4.0, 0.0)
+
+    assert mouse.position == (500, 500)
+    assert controller.frozen is True
+
+
+def test_release_action_unfreezes_and_movement_resumes():
+    mouse = FakeMouse(start=(500, 500))
+    config = AppConfig(
+        calibration=CalibrationConfig(acceleration=0.0),
+        gestures={"eyebrow_both": GestureConfig(action="freeze_cursor")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    controller.fire_action("eyebrow_both")
+    controller.move_cursor(4.0, 0.0)
+    assert mouse.position == (500, 500)
+
+    controller.release_action("eyebrow_both")
+    assert controller.frozen is False
+
+    controller.move_cursor(4.0, 0.0)
+    assert mouse.position[0] > 500
+
+
+def test_release_all_holds_unfreezes_the_cursor():
+    mouse = FakeMouse(start=(500, 500))
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"eyebrow_both": GestureConfig(action="freeze_cursor")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    controller.fire_action("eyebrow_both")
+    controller.release_all_holds()
+
+    assert controller.frozen is False
+
+
+def test_fire_action_invokes_on_action_for_left_drag():
+    mouse = FakeMouse()
+    calls = []
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"blink_a": GestureConfig(action="left_drag")},
+    )
+    controller = MouseController(
+        config, (1000, 1000), mouse=mouse, on_action=lambda *args: calls.append(args)
+    )
+
+    controller.fire_action("blink_a")
+
+    assert calls == [("blink_a", "left_drag", mouse.position)]

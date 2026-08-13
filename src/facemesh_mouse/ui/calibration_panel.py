@@ -7,6 +7,8 @@ tunes how that movement turns into cursor speed.
 """
 from __future__ import annotations
 
+import tkinter as tk
+
 import customtkinter as ctk
 
 from ..modules.config import AppConfig
@@ -70,7 +72,7 @@ _DWELL_TIME_RANGE = (0.3, 5.0)
 
 
 class CalibrationPanel:
-    def __init__(self, parent, config: AppConfig) -> None:
+    def __init__(self, parent: tk.Misc, config: AppConfig) -> None:
         self._config = config
         self.sliders: dict[str, ctk.CTkSlider] = {}
         self._value_labels: dict[str, ctk.CTkLabel] = {}

@@ -216,6 +216,119 @@ def test_indefinite_hold_still_fires_only_once():
         assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
 
 
+def test_scroll_action_repeats_at_the_cooldown_cadence_while_held():
+    """Unlike click actions, a scroll gesture held past hold_ms must keep
+    firing every cooldown_ms for as long as it stays held, instead of
+    firing once and requiring a full release/re-hold cycle."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(blink_a=GestureConfig(action="scroll_up", threshold=0.2, cooldown_ms=200, hold_ms=0)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+    clock.t = 0.1  # still under cooldown -- no refire yet
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+
+    clock.t = 0.2  # cooldown elapsed, still held -- fires again
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+    clock.t = 0.5  # released -- stops repeating
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+
+    clock.t = 0.6
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+
+def test_click_action_does_not_repeat_while_held_past_the_cooldown():
+    """The scroll repeat-while-held behavior must not leak into momentary
+    actions -- a click gesture still fires at most once per hold."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(blink_a=GestureConfig(action="left_click", threshold=0.2, cooldown_ms=200, hold_ms=0)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+
+    for t in (0.2, 0.4, 1.0):
+        clock.t = t
+        assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+
+
+def test_drag_action_fires_on_hold_and_releases_reports_the_falling_edge():
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(blink_a=GestureConfig(action="left_drag", threshold=0.2, cooldown_ms=0, hold_ms=400)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+    assert engine.last_released == []
+
+    clock.t = 0.4  # hold completes -- press fires
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == ["blink_a"]
+    assert engine.last_released == []
+
+    clock.t = 0.6  # still held -- no repeat press, no release
+    assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
+    assert engine.last_released == []
+
+    clock.t = 0.8  # gesture releases -- reported as a falling edge, not a fire
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+    assert engine.last_released == ["blink_a"]
+
+    clock.t = 0.9  # released state settles -- no further release events
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+    assert engine.last_released == []
+
+
+def test_drag_action_never_reaching_hold_time_never_reports_a_release():
+    """A gesture that releases before hold_ms elapses never pressed, so it
+    must not report a release either."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(blink_a=GestureConfig(action="left_drag", threshold=0.2, cooldown_ms=0, hold_ms=400)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3))
+
+    clock.t = 0.2  # released before the 400ms hold completes
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+    assert engine.last_released == []
+
+
+def test_freeze_cursor_action_fires_on_hold_and_releases_on_the_falling_edge():
+    """freeze_cursor shares the _HOLD_ACTIONS press/release machinery with
+    left_drag -- same edge semantics, different consumer."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(eyebrow_both=GestureConfig(action="freeze_cursor", threshold=0.1, cooldown_ms=0, hold_ms=200)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == []  # starts the hold
+
+    clock.t = 0.2
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == ["eyebrow_both"]  # hold completes
+    assert engine.last_released == []
+
+    clock.t = 0.5  # still held -- no repeat, no release
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == []
+    assert engine.last_released == []
+
+    clock.t = 0.6  # released
+    assert engine.evaluate(_metrics(eyebrow=0.05, eyebrow_b=0.05)) == []
+    assert engine.last_released == ["eyebrow_both"]
+
+
 def test_trigger_progress_reaches_one_at_an_above_threshold_trigger():
     assert trigger_progress("mouth_open", _metrics(mouth=0.35), 0.35) == pytest.approx(1.0)
 

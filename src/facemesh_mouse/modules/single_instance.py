@@ -39,8 +39,8 @@ def _listen_loop(listener: socket.socket, on_signal: Callable[[], None]) -> None
         conn.close()
         try:
             on_signal()
-        except Exception:
-            pass
+        except Exception as exc:  # noqa: BLE001 - a bad signal handler must never kill the listener
+            print(f"facemesh-mouse: on_signal failed ({exc!r})")
 
 
 def _signal_existing_instance(host: str, port: int) -> None:

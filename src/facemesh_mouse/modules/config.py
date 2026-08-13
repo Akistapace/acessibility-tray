@@ -12,6 +12,8 @@ VALID_ACTIONS = {
     "double_click",
     "scroll_up",
     "scroll_down",
+    "left_drag",
+    "freeze_cursor",
 }
 
 GESTURE_NAMES = [

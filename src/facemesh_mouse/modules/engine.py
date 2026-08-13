@@ -157,6 +157,8 @@ class Engine:
 
         if metrics is None:
             self.no_face.set()
+            if self._was_active:
+                self._mouse_controller.release_all_holds()
             self._was_active = False
             self._point_tracker.reset()
             return
@@ -180,15 +182,28 @@ class Engine:
             if not self._was_active:
                 self._mouse_controller.reanchor()
             self._mouse_controller.move_cursor(*self._point_tracker.get_movement())
-            self._mouse_controller.evaluate_dwell()
+            if not self._mouse_controller.frozen:
+                # A frozen cursor is being held still on purpose (precise
+                # selection/scroll) -- a dwell click firing mid-freeze would
+                # be an unwanted side effect, not the requested click.
+                self._mouse_controller.evaluate_dwell()
             for gesture_name in self._gesture_engine.evaluate(metrics):
                 self._mouse_controller.fire_action(gesture_name)
+            for gesture_name in self._gesture_engine.last_released:
+                self._mouse_controller.release_action(gesture_name)
+        elif self._was_active:
+            # Control just turned off (paused, GUI shown) with a drag
+            # possibly still held -- release it rather than leaving the
+            # button stuck down until something else clicks.
+            self._mouse_controller.release_all_holds()
         self._was_active = active_now
 
     def stop(self) -> None:
         self._stop.set()
         if self._thread:
             self._thread.join(timeout=2)
+        if self._mouse_controller:
+            self._mouse_controller.release_all_holds()
         if self._tracker:
             self._tracker.close()
         if self._camera:

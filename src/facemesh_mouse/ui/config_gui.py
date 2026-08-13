@@ -35,7 +35,9 @@ _HELP_TEXT = (
     "faz. O tempo de cada gesto é quanto você precisa segurar a expressão: é o "
     "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
     "quiser disparo imediato.\n\n"
-    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça.\n\n"
+    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça. Reabrir "
+    "a janela depois não interrompe o controle; use o botão Parar para isso "
+    "de propósito.\n\n"
     "Atalhos\n\n"
     "Ctrl+Alt+P pausa e retoma. Use como quem levanta o mouse da mesa: o "
     "cursor congela, você reposiciona a cabeça numa posição confortável, e ao "
@@ -82,7 +84,7 @@ class ConfigWindow:
         self._after_id = None
 
         root.title("FaceMesh Mouse")
-        root.protocol("WM_DELETE_WINDOW", self._start_and_hide)
+        root.protocol("WM_DELETE_WINDOW", self._save_and_hide)
 
         self._build_widgets()
         self._tick()
@@ -98,17 +100,26 @@ class ConfigWindow:
         self._preview = tk.Label(left, background="#1f1f1f")
         self._preview.pack(padx=10, pady=10)
 
-        ctk.CTkButton(
+        self._status_label = ctk.CTkLabel(left, text="", font=("Segoe UI", 12, "bold"))
+        self._status_label.pack(padx=10, pady=(0, 4))
+
+        self._toggle_button = ctk.CTkButton(
             left,
-            text="Iniciar controle do mouse",
+            text="",
             height=44,
             font=("Segoe UI", 14, "bold"),
-            command=self._start_and_hide,
-        ).pack(fill="x", padx=10, pady=(0, 10))
+            command=self._on_toggle,
+        )
+        self._toggle_button.pack(fill="x", padx=10, pady=(0, 10))
+        # Captured before the first _update_toggle() call so "Iniciar" can
+        # restore the theme's default blue instead of hardcoding it.
+        self._start_fg_color = self._toggle_button.cget("fg_color")
+        self._start_hover_color = self._toggle_button.cget("hover_color")
+        self._update_toggle()
 
         ctk.CTkLabel(
             left,
-            text="A janela some e o controle segue em segundo plano.",
+            text="Fechar esta janela não muda o controle -- use o botão acima para isso.",
             text_color="gray70",
         ).pack(padx=10, pady=(0, 10))
 
@@ -156,6 +167,7 @@ class ConfigWindow:
             if metrics is not None:
                 self._calibration.update(metrics)
                 self._gestures.update(metrics)
+            self._update_toggle()
 
         self._after_id = self._root.after(33, self._tick)
 
@@ -181,15 +193,53 @@ class ConfigWindow:
         self._preview.configure(image=self._tk_image)
 
     # -- lifecycle -------------------------------------------------------
-    def _start_and_hide(self) -> None:
+    def _save_config(self) -> None:
         self._calibration.apply_to_config()
         self._gestures.apply_to_config()
         self._config.keyboard_button.x = self._live_config.keyboard_button.x
         self._config.keyboard_button.y = self._live_config.keyboard_button.y
         config_mod.save_config(self._config_path, self._config)
+
+    def _start_and_hide(self) -> None:
+        self._save_config()
         self._on_start(self._config)
         self._root.withdraw()
 
+    def _stop(self) -> None:
+        self._save_config()
+        self._engine.control_enabled.clear()
+        self._update_toggle()
+
+    def _save_and_hide(self) -> None:
+        """WM_DELETE_WINDOW handler: just saves and hides, leaving
+        control_enabled exactly as it was -- closing the window must not
+        second-guess an explicit Iniciar/Parar choice."""
+        self._save_config()
+        self._root.withdraw()
+
+    def _on_toggle(self) -> None:
+        if self._engine.control_enabled.is_set():
+            self._stop()
+        else:
+            self._start_and_hide()
+
+    def _update_toggle(self) -> None:
+        if self._engine.control_enabled.is_set():
+            self._status_label.configure(text="Controle ativo")
+            self._toggle_button.configure(
+                text="Parar controle do mouse",
+                fg_color="#c0392b",
+                hover_color="#992d22",
+            )
+        else:
+            self._status_label.configure(text="Controle parado")
+            self._toggle_button.configure(
+                text="Iniciar controle do mouse",
+                fg_color=self._start_fg_color,
+                hover_color=self._start_hover_color,
+            )
+
     def show(self) -> None:
+        self._update_toggle()
         self._root.deiconify()
         self._root.lift()

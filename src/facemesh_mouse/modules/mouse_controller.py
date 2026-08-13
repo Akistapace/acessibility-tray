@@ -84,6 +84,8 @@ class MouseController:
         self._dwell_anchor_y: float | None = None
         self._dwell_started_at: float | None = None
         self._dwell_fired = False
+        self._drag_pressed = False
+        self.frozen = False
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
@@ -109,6 +111,9 @@ class MouseController:
         """Applies one frame of averaged point movement, in camera pixels."""
         if self._cursor_x is None:
             return  # not yet reanchored -- nothing to compare or move from
+
+        if self.frozen:
+            return  # held still deliberately (freeze_cursor) -- ignore tracked movement
 
         cur_x, cur_y = self._mouse.position
 
@@ -212,4 +217,35 @@ class MouseController:
                 self._on_action(gesture_name, action, self._mouse.position)
             except Exception as exc:  # noqa: BLE001 - feedback must never block the click
                 print(f"facemesh-mouse: on_action failed ({exc!r})")
+        if action == "left_drag":
+            # Held rather than clicked: GestureEngine only calls this once,
+            # on the gesture's rising edge, and pairs it with a matching
+            # release_action call on the falling edge.
+            self._mouse.press(Button.left)
+            self._drag_pressed = True
+            return
+        if action == "freeze_cursor":
+            self.frozen = True
+            return
         _ACTIONS[action](self._mouse)
+
+    def release_action(self, gesture_name: str) -> None:
+        """Undoes a matching `fire_action` hold call (drag press or cursor
+        freeze). A no-op for any gesture that isn't currently holding, so it
+        is always safe to call from GestureEngine's release list."""
+        action = self._config.gestures[gesture_name].action
+        if action == "left_drag" and self._drag_pressed:
+            self._mouse.release(Button.left)
+            self._drag_pressed = False
+        elif action == "freeze_cursor":
+            self.frozen = False
+
+    def release_all_holds(self) -> None:
+        """Safety net for a drag press or cursor freeze left active when
+        control is interrupted -- paused, face lost, or the app stopping --
+        before the gesture itself released it. Without this the button stays
+        stuck down (or the cursor stuck frozen) until something else clicks."""
+        if self._drag_pressed:
+            self._mouse.release(Button.left)
+            self._drag_pressed = False
+        self.frozen = False

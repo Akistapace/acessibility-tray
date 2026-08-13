@@ -24,6 +24,17 @@ MOUTH_CLOSED_MAX = 0.15
 # else fires when its metric rises above it.
 _FIRES_BELOW = {"blink_a", "blink_b", "blink_both"}
 
+# Actions that keep firing every cooldown_ms for as long as the gesture
+# stays held, instead of firing once per hold -- so scrolling continues
+# while the user holds the expression rather than needing a full
+# release-and-reraise per tick.
+_REPEATING_ACTIONS = {"scroll_up", "scroll_down"}
+
+# Actions that press on the rising edge and release on the falling edge,
+# instead of firing an atomic action -- reported via GestureEngine.evaluate's
+# return (the press) and GestureEngine.last_released (the release).
+_HOLD_ACTIONS = {"left_drag", "freeze_cursor"}
+
 
 def _condition(name: str, metrics: FaceMetrics, threshold: float) -> bool:
     if name == "blink_a":
@@ -129,6 +140,7 @@ class GestureEngine:
         self._config = config
         self._clock = clock
         self._state = {name: _GestureState() for name in config.gestures}
+        self.last_released: list[str] = []
 
     def update_config(self, config: AppConfig) -> None:
         self._config = config
@@ -136,13 +148,19 @@ class GestureEngine:
             self._state.setdefault(name, _GestureState())
 
     def evaluate(self, metrics: FaceMetrics) -> list[str]:
-        """Returns the list of gesture names that fired on this frame."""
+        """Returns the list of gesture names that fired on this frame.
+        Also refreshes `last_released` with any hold-action gestures (e.g.
+        drag) whose condition just released -- read it right after calling
+        this, before the next frame's call overwrites it."""
         fired = []
+        released = []
         now = self._clock()
         for name, gesture_cfg in self._config.gestures.items():
             state = self._state[name]
 
             if not _condition(name, metrics, gesture_cfg.threshold):
+                if state.fired_this_hold and gesture_cfg.action in _HOLD_ACTIONS:
+                    released.append(name)
                 state.met_since = None
                 state.fired_this_hold = False
                 continue
@@ -151,6 +169,15 @@ class GestureEngine:
                 state.met_since = now
 
             if state.fired_this_hold:
+                # A repeating action (scroll) keeps re-firing at the
+                # cooldown cadence for as long as the gesture stays held,
+                # instead of the once-per-hold guard applied below.
+                if (
+                    gesture_cfg.action in _REPEATING_ACTIONS
+                    and (now - state.last_fired_at) * 1000.0 >= gesture_cfg.cooldown_ms
+                ):
+                    fired.append(name)
+                    state.last_fired_at = now
                 continue
 
             if (now - state.met_since) * 1000.0 < gesture_cfg.hold_ms:
@@ -166,4 +193,5 @@ class GestureEngine:
                 # two float subtractions per gesture -- negligible.
                 state.fired_this_hold = True
 
+        self.last_released = released
         return fired

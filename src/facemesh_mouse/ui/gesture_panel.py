@@ -10,6 +10,7 @@ of a misleading full bar.
 """
 from __future__ import annotations
 
+import tkinter as tk
 from dataclasses import dataclass
 
 import customtkinter as ctk
@@ -38,15 +39,35 @@ ACTION_LABELS = {
     "double_click": "Duplo clique",
     "scroll_up": "Scroll cima",
     "scroll_down": "Scroll baixo",
+    "left_drag": "Clicar e arrastar (segurar)",
+    "freeze_cursor": "Congelar cursor (segurar)",
 }
 ACTION_BY_LABEL = {label: action for action, label in ACTION_LABELS.items()}
+
+# Actions where the interval slider means "repita a cada X ms enquanto
+# segurar" instead of "espere X ms antes de aceitar o próximo disparo" --
+# same field (cooldown_ms), different framing depending on the action.
+_REPEATING_ACTIONS = {"scroll_up", "scroll_down"}
 
 _HELP = (
     "A barra enche conforme você se aproxima de disparar o gesto. Os rótulos "
     "A e B dos olhos e das sobrancelhas são internos: faça o gesto e veja qual "
-    "barra reage. O tempo é quanto você precisa segurar a expressão para ela "
-    "valer -- é o que impede piscadas naturais de virarem cliques."
+    "barra reage. O tempo de espera é quanto você precisa segurar a expressão "
+    "para ela valer -- é o que impede piscadas naturais de virarem cliques. "
+    "Em scroll, o intervalo abaixo também controla a repetição: segurando o "
+    "gesto, o scroll continua rolando a cada intervalo em vez de precisar "
+    "soltar e refazer. Em \"clicar e arrastar\", o botão fica pressionado "
+    "enquanto o gesto for mantido e solta quando ele for desfeito. Em "
+    "\"congelar cursor\", o mouse para 100% enquanto o gesto for mantido -- "
+    "útil pra rolar ou selecionar com precisão sem o cursor balançar -- e "
+    "volta a seguir a cabeça quando o gesto for desfeito."
 )
+
+
+def _cooldown_caption(action: str) -> str:
+    if action in _REPEATING_ACTIONS:
+        return "Repetição (enquanto o gesto ficar segurado):"
+    return "Intervalo mínimo entre disparos:"
 
 
 @dataclass
@@ -54,10 +75,11 @@ class GestureRow:
     bar: ctk.CTkProgressBar
     action_var: ctk.StringVar
     hold_var: ctk.IntVar
+    cooldown_var: ctk.IntVar
 
 
 class GesturePanel:
-    def __init__(self, parent, config: AppConfig) -> None:
+    def __init__(self, parent: tk.Misc, config: AppConfig) -> None:
         self._config = config
         self.rows: dict[str, GestureRow] = {}
 
@@ -99,11 +121,20 @@ class GesturePanel:
         controls.grid_columnconfigure(1, weight=1)
 
         action_var = ctk.StringVar(value=ACTION_LABELS[gesture_cfg.action])
+
+        cooldown_caption = ctk.CTkLabel(
+            controls, text=_cooldown_caption(gesture_cfg.action), anchor="w", text_color="gray70"
+        )
+
+        def on_action_change(selected_label, caption=cooldown_caption) -> None:
+            caption.configure(text=_cooldown_caption(ACTION_BY_LABEL[selected_label]))
+
         ctk.CTkOptionMenu(
             controls,
             variable=action_var,
             values=list(ACTION_LABELS.values()),
             width=150,
+            command=on_action_change,
         ).grid(row=0, column=0, sticky="w")
 
         hold_var = ctk.IntVar(value=gesture_cfg.hold_ms)
@@ -120,7 +151,23 @@ class GesturePanel:
         hold_slider.grid(row=0, column=1, sticky="ew", padx=8)
         hold_label.grid(row=0, column=2, sticky="e")
 
-        return GestureRow(bar=bar, action_var=action_var, hold_var=hold_var)
+        cooldown_caption.grid(row=1, column=0, sticky="w", pady=(6, 0))
+
+        cooldown_var = ctk.IntVar(value=gesture_cfg.cooldown_ms)
+        cooldown_label = ctk.CTkLabel(controls, text=f"{gesture_cfg.cooldown_ms} ms", width=64)
+
+        def on_cooldown(value, label=cooldown_label, var=cooldown_var) -> None:
+            var.set(int(float(value)))
+            label.configure(text=f"{var.get()} ms")
+
+        cooldown_slider = ctk.CTkSlider(
+            controls, from_=50, to=1500, number_of_steps=29, command=on_cooldown
+        )
+        cooldown_slider.set(gesture_cfg.cooldown_ms)  # start at the saved value
+        cooldown_slider.grid(row=1, column=1, sticky="ew", padx=8, pady=(6, 0))
+        cooldown_label.grid(row=1, column=2, sticky="e", pady=(6, 0))
+
+        return GestureRow(bar=bar, action_var=action_var, hold_var=hold_var, cooldown_var=cooldown_var)
 
     def update(self, metrics: FaceMetrics) -> None:
         for name, row in self.rows.items():
@@ -132,3 +179,4 @@ class GesturePanel:
             gesture_cfg = self._config.gestures[name]
             gesture_cfg.action = ACTION_BY_LABEL[row.action_var.get()]
             gesture_cfg.hold_ms = int(row.hold_var.get())
+            gesture_cfg.cooldown_ms = int(row.cooldown_var.get())

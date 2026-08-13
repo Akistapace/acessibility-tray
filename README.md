@@ -130,7 +130,7 @@ do pulso exigem checklist manual (ver spec).
 
 ```powershell
 .venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 --collect-data customtkinter -n facemesh-mouse run.py
+.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 --collect-data customtkinter --icon assets/icon.ico --add-data "assets/icon.ico;assets" -n facemesh-mouse run.py
 ```
 
 `--paths src` é obrigatório: o código roda com `src/` adicionado ao

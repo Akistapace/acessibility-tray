@@ -18,6 +18,17 @@ from .ui.keyboard_button import KeyboardButton
 from .ui.tray import TrayIcon
 
 CONFIG_PATH = "config.json"
+ICON_PATH = "assets/icon.ico"
+
+
+def _resource_path(relative: str) -> Path:
+    """Resolves a bundled asset both when run from source and when frozen
+    by PyInstaller, whose --onefile mode unpacks `datas` under `sys._MEIPASS`
+    instead of the source tree."""
+    base = getattr(sys, "_MEIPASS", None)
+    if base is None:
+        base = Path(__file__).resolve().parents[2]
+    return Path(base) / relative
 
 
 def _make_process_dpi_aware() -> None:
@@ -86,6 +97,10 @@ def main() -> None:
         sys.exit(1)
 
     root = create_root()
+    try:
+        root.iconbitmap(str(_resource_path(ICON_PATH)))
+    except Exception as exc:  # noqa: BLE001 - a missing icon must never block startup
+        print(f"facemesh-mouse: window icon failed ({exc!r})")
     screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
     engine.start(screen_size)
 
@@ -114,7 +129,6 @@ def main() -> None:
         return engine.paused.is_set()
 
     def open_config() -> None:
-        engine.control_enabled.clear()
         root.after(0, config_window.show)
 
     _config_window_opener = open_config
