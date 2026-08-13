@@ -17,6 +17,7 @@ import cv2
 from PIL import Image, ImageTk
 
 from . import config as config_mod
+from . import virtual_keyboard
 from .calibration_panel import CalibrationPanel
 from .config import AppConfig
 from .engine import Engine
@@ -118,6 +119,12 @@ class ConfigWindow:
 
         self._gestures = GesturePanel(tabs.tab("Gestos"), self._config)
         self._gestures.frame.pack(fill="both", expand=True)
+
+        ctk.CTkButton(
+            tabs.tab("Ajuda"),
+            text="Abrir Teclado",
+            command=virtual_keyboard.open_virtual_keyboard,
+        ).pack(fill="x", padx=6, pady=(6, 0))
 
         ctk.CTkLabel(
             tabs.tab("Ajuda"),
