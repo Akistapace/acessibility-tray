@@ -1,4 +1,4 @@
-"""System tray icon: Pause/Resume, Open Config, Quit.
+"""System tray icon: Pause/Resume, Open Config, Open Keyboard, Quit.
 
 Icon color reflects one state, chosen by precedence (highest first): paused
 overrides everything else the user might also be seeing (a face, a physical
