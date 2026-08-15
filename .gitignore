@@ -5,6 +5,7 @@ __pycache__/
 config.json
 build/
 dist/
+release/
 *.spec
 !backend.spec
 .superpowers/
