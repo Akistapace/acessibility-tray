@@ -24,4 +24,13 @@ describe("BackendProcess", () => {
 
     expect(await exited).toBe(0);
   });
+
+  it("emits exit instead of crashing when the command can't be spawned", async () => {
+    const proc = new BackendProcess("this-command-does-not-exist-12345", []);
+    const exited = new Promise((resolve) => proc.once("exit", resolve));
+
+    proc.start();
+
+    expect(await exited).toBeNull();
+  });
 });

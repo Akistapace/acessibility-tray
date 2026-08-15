@@ -29,6 +29,10 @@ export class BackendProcess extends EventEmitter {
     this.child.stderr.setEncoding("utf8");
     this.child.stderr.on("data", (chunk: string) => this.emit("log", chunk));
     this.child.on("exit", (code) => this.emit("exit", code));
+    this.child.on("error", (err) => {
+      this.emit("log", `spawn error: ${err.message}\n`);
+      this.emit("exit", null);
+    });
   }
 
   send(message: Record<string, unknown>): void {
