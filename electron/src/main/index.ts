@@ -1,9 +1,20 @@
 import { app, dialog } from "electron";
+import fs from "node:fs";
 import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
 import { wireBackendRelay } from "./ipcRelay";
 import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
 import { createOverlayWindow } from "./windows/overlayWindow";
+import { createButtonsWindow, resetButtonsPosition } from "./windows/buttonsWindow";
+
+function readSavedButtonsPosition(): { x: number | null; y: number | null } {
+  try {
+    const raw = JSON.parse(fs.readFileSync("config.json", "utf-8"));
+    return { x: raw.action_buttons?.x ?? null, y: raw.action_buttons?.y ?? null };
+  } catch {
+    return { x: null, y: null };
+  }
+}
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -57,9 +68,11 @@ app.whenReady().then(() => {
   wireBackendRelay(backend);
   createConfigWindow(backend);
   createOverlayWindow();
+  const saved = readSavedButtonsPosition();
+  createButtonsWindow(backend, saved.x, saved.y);
 });
 
-export { showConfigWindow };
+export { showConfigWindow, resetButtonsPosition };
 
 app.on("before-quit", () => {
   quitting = true;

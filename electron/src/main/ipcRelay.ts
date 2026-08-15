@@ -7,7 +7,15 @@ export function wireBackendRelay(backend: BackendProcess): void {
       win.webContents.send(`backend:${message.type}`, message);
     }
   });
-  ipcMain.on("backend:send", (_event, message) => {
+  ipcMain.on("backend:send", (_event, message: { type: string }) => {
+    if (message.type.includes(":")) {
+      // Namespaced types (config:*, buttons:*) are main-process-only --
+      // re-emit on ipcMain itself so the window module that owns that
+      // namespace (configWindow.ts, buttonsWindow.ts) can listen for it
+      // directly, instead of every listener filtering the shared channel.
+      ipcMain.emit(message.type, undefined, message);
+      return;
+    }
     backend.send(message);
   });
 }

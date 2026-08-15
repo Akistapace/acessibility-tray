@@ -114,6 +114,10 @@ saveButton.addEventListener("click", () => {
   window.backend.send({ type: "save_config", config: currentConfig });
 });
 
+document.getElementById("reset-position-button")?.addEventListener("click", () => {
+  window.backend.send({ type: "config:reset-position" });
+});
+
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".tab-button").forEach((b) => b.classList.remove("active"));

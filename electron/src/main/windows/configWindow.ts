@@ -1,6 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
 import path from "node:path";
 import { BackendProcess } from "../backendProcess";
+import { resetButtonsPosition } from "./buttonsWindow";
 
 let win: BrowserWindow | null = null;
 
@@ -34,5 +35,5 @@ export function showConfigWindow(): void {
 }
 
 ipcMain.on("config:reset-position", () => {
-  // Wired to the floating-buttons window in Task 13.
+  resetButtonsPosition();
 });
