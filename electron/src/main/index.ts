@@ -3,6 +3,7 @@ import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
 import { wireBackendRelay } from "./ipcRelay";
 import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
+import { createOverlayWindow } from "./windows/overlayWindow";
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -55,6 +56,7 @@ app.whenReady().then(() => {
   backend.start();
   wireBackendRelay(backend);
   createConfigWindow(backend);
+  createOverlayWindow();
 });
 
 export { showConfigWindow };
