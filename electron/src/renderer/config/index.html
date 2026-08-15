@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <title>FaceMesh Mouse</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <div class="layout">
+    <div class="left">
+      <img id="preview" width="480" height="360" alt="Prévia da câmera" />
+      <div id="status-label" class="status-label"></div>
+      <button id="toggle-button" class="toggle-button"></button>
+      <button id="save-button" class="secondary-button">Salvar configurações</button>
+      <button id="reset-position-button" class="secondary-button">
+        Redefinir posição do teclado/microfone
+      </button>
+      <p class="hint">
+        Iniciar aplica os ajustes ao controle, mas só fica salvo pra próxima vez
+        que você clicar em Salvar. Fechar esta janela não muda o controle nem salva.
+      </p>
+    </div>
+    <div class="right">
+      <div class="tabs">
+        <button class="tab-button active" data-tab="movimento">Movimento</button>
+        <button class="tab-button" data-tab="gestos">Gestos</button>
+        <button class="tab-button" data-tab="ajuda">Ajuda</button>
+      </div>
+      <div id="tab-movimento" class="tab-panel active">
+        <label>Sensibilidade horizontal
+          <input type="range" id="sensitivity_x" min="0.005" max="0.10" step="0.001" />
+        </label>
+        <label>Sensibilidade vertical
+          <input type="range" id="sensitivity_y" min="0.005" max="0.10" step="0.001" />
+        </label>
+        <label>Aceleração
+          <input type="range" id="acceleration" min="0" max="1" step="0.01" />
+        </label>
+        <label>Limiar de movimento (px)
+          <input type="range" id="motion_threshold_px" min="0" max="10" step="0.1" />
+        </label>
+        <label>Espera antes de retomar (s)
+          <input type="range" id="yield_resume_after_s" min="1" max="10" step="0.1" />
+        </label>
+        <label><input type="checkbox" id="dwell_click_enabled" /> Clique por permanência</label>
+        <label>Tempo de permanência (s)
+          <input type="range" id="dwell_time_s" min="0.3" max="5" step="0.1" />
+        </label>
+        <label><input type="checkbox" id="click_logging_enabled" /> Registrar cliques em clicks.log</label>
+      </div>
+      <div id="tab-gestos" class="tab-panel">
+        <div id="gesture-rows"></div>
+      </div>
+      <div id="tab-ajuda" class="tab-panel">
+        <p>
+          1. Movimento — ajuste os sliders de sensibilidade, aceleração e limiar de
+          movimento. 2. Gestos — escolha a ação de cada gesto e por quanto tempo
+          segurar. 3. Iniciar — a janela some e o cursor passa a seguir a cabeça.
+          4. Salvar configurações — grava os ajustes atuais no arquivo.
+        </p>
+        <p>Ctrl+Alt+P pausa/retoma. Ctrl+Alt+O reabre esta janela.</p>
+      </div>
+    </div>
+  </div>
+  <script type="module" src="index.js"></script>
+</body>
+</html>

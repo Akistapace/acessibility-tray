@@ -2,6 +2,7 @@ import { app, dialog } from "electron";
 import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
 import { wireBackendRelay } from "./ipcRelay";
+import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -53,7 +54,10 @@ app.whenReady().then(() => {
   backend.on("log", (text: string) => console.error(`[backend] ${text}`));
   backend.start();
   wireBackendRelay(backend);
+  createConfigWindow(backend);
 });
+
+export { showConfigWindow };
 
 app.on("before-quit", () => {
   quitting = true;

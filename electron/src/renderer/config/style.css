@@ -1,0 +1,15 @@
+body { background: #1f1f1f; color: #e6e6e6; font-family: "Segoe UI", sans-serif; margin: 0; }
+.layout { display: flex; height: 100vh; }
+.left { width: 280px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+.right { flex: 1; padding: 12px; overflow-y: auto; }
+#preview { background: #000; border-radius: 4px; }
+.toggle-button { height: 44px; font-weight: bold; }
+.secondary-button { height: 36px; background: transparent; border: 1px solid #555; color: inherit; }
+.hint { color: #999; font-size: 12px; }
+.tabs { display: flex; gap: 4px; margin-bottom: 12px; }
+.tab-button { background: transparent; border: none; color: #999; padding: 8px 12px; cursor: pointer; }
+.tab-button.active { color: #fff; border-bottom: 2px solid #4da3ff; }
+.tab-panel { display: none; flex-direction: column; gap: 12px; }
+.tab-panel.active { display: flex; }
+.gesture-row { border: 1px solid #333; border-radius: 4px; padding: 8px; margin-bottom: 8px; }
+label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
