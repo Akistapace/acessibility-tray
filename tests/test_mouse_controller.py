@@ -543,7 +543,10 @@ def test_freeze_cursor_stops_move_cursor_from_moving_the_mouse():
     assert controller.frozen is True
 
 
-def test_release_action_unfreezes_and_movement_resumes():
+def test_firing_freeze_cursor_again_toggles_it_back_off():
+    """freeze_cursor is a toggle, not a hold: GestureEngine only ever calls
+    fire_action for it (never release_action), so a second, separate fire
+    of the same gesture is what unfreezes -- not a release event."""
     mouse = FakeMouse(start=(500, 500))
     config = AppConfig(
         calibration=CalibrationConfig(acceleration=0.0),
@@ -556,11 +559,26 @@ def test_release_action_unfreezes_and_movement_resumes():
     controller.move_cursor(4.0, 0.0)
     assert mouse.position == (500, 500)
 
-    controller.release_action("eyebrow_both")
+    controller.fire_action("eyebrow_both")
     assert controller.frozen is False
 
     controller.move_cursor(4.0, 0.0)
     assert mouse.position[0] > 500
+
+
+def test_release_action_does_not_affect_freeze_cursor():
+    mouse = FakeMouse(start=(500, 500))
+    config = AppConfig(
+        calibration=CalibrationConfig(),
+        gestures={"eyebrow_both": GestureConfig(action="freeze_cursor")},
+    )
+    controller = MouseController(config, (1000, 1000), mouse=mouse)
+    controller.reanchor()
+
+    controller.fire_action("eyebrow_both")
+    controller.release_action("eyebrow_both")
+
+    assert controller.frozen is True
 
 
 def test_release_all_holds_unfreezes_the_cursor():

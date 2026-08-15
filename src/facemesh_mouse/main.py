@@ -13,8 +13,8 @@ from .modules import single_instance
 from .modules.engine import Engine
 from .modules.hotkeys import HotkeyListener
 from .ui import click_feedback
+from .ui.action_buttons import ActionButtons
 from .ui.config_gui import ConfigWindow, create_root
-from .ui.keyboard_button import KeyboardButton
 from .ui.tray import TrayIcon
 
 CONFIG_PATH = "config.json"
@@ -81,7 +81,15 @@ def main() -> None:
     _sync_click_logging(app_config)
 
     def _on_action(gesture_name: str, action: str, position: tuple[int, int]) -> None:
-        root.after(0, click_feedback.show_pulse, root, position[0], position[1])
+        if action == "freeze_cursor":
+            # Fired before MouseController flips `frozen` (see fire_action),
+            # so its current value is the pre-toggle state -- "not frozen"
+            # here means this call is about to engage the freeze.
+            mouse_controller = engine.mouse_controller
+            will_freeze = not (mouse_controller.frozen if mouse_controller else False)
+            root.after(0, click_feedback.show_lock_pulse, root, position[0], position[1], will_freeze)
+        else:
+            root.after(0, click_feedback.show_pulse, root, position[0], position[1])
         click_log.record(gesture_name, action, position)
 
     engine = Engine(app_config, on_action=_on_action)
@@ -104,10 +112,11 @@ def main() -> None:
     screen_size = (root.winfo_screenwidth(), root.winfo_screenheight())
     engine.start(screen_size)
 
+    action_buttons = None
     try:
-        KeyboardButton(root, app_config, CONFIG_PATH, screen_size)
-    except Exception as exc:  # noqa: BLE001 - a missing button must never block startup
-        print(f"facemesh-mouse: floating keyboard button failed ({exc!r})")
+        action_buttons = ActionButtons(root, app_config, CONFIG_PATH, screen_size)
+    except Exception as exc:  # noqa: BLE001 - missing buttons must never block startup
+        print(f"facemesh-mouse: floating action buttons failed ({exc!r})")
 
     config_window = ConfigWindow(
         root,
@@ -115,6 +124,7 @@ def main() -> None:
         app_config,
         CONFIG_PATH,
         on_start=_make_on_start(engine),
+        action_buttons=action_buttons,
     )
 
     if Path(CONFIG_PATH).exists():

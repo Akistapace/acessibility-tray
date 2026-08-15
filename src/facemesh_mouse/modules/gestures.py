@@ -33,7 +33,19 @@ _REPEATING_ACTIONS = {"scroll_up", "scroll_down"}
 # Actions that press on the rising edge and release on the falling edge,
 # instead of firing an atomic action -- reported via GestureEngine.evaluate's
 # return (the press) and GestureEngine.last_released (the release).
-_HOLD_ACTIONS = {"left_drag", "freeze_cursor"}
+# freeze_cursor is deliberately NOT here: it's a plain edge-triggered
+# toggle (MouseController flips `frozen` on each fire, like flicking a
+# switch), not a hold -- holding one expression continuously while also
+# performing a second gesture (e.g. mouth-open to drag) is impractical, so
+# one pulse locks the cursor and a second, separate pulse unlocks it.
+_HOLD_ACTIONS = {"left_drag"}
+
+# Actions where the condition is meant to represent an ongoing state (button
+# held, scroll repeating) rather than a discrete press. A continuous metric
+# like mouth-open ratio dips below threshold for single frames from
+# tracking noise alone; on these actions that dip must not immediately drop
+# the hold -- see the release-debounce below.
+_CONTINUOUS_ACTIONS = _HOLD_ACTIONS | _REPEATING_ACTIONS
 
 
 def _condition(name: str, metrics: FaceMetrics, threshold: float) -> bool:
@@ -133,6 +145,7 @@ class _GestureState:
     met_since: float | None = None  # when the condition last became true
     fired_this_hold: bool = False
     last_fired_at: float = -1e9
+    release_pending_since: float | None = None  # when the condition first dipped false mid-hold
 
 
 class GestureEngine:
@@ -157,13 +170,30 @@ class GestureEngine:
         now = self._clock()
         for name, gesture_cfg in self._config.gestures.items():
             state = self._state[name]
+            continuous = gesture_cfg.action in _CONTINUOUS_ACTIONS
 
             if not _condition(name, metrics, gesture_cfg.threshold):
-                if state.fired_this_hold and gesture_cfg.action in _HOLD_ACTIONS:
-                    released.append(name)
+                if state.fired_this_hold and continuous:
+                    # Debounce the release the same way the press is
+                    # debounced: a single-frame dip below threshold (jaw
+                    # wobble, landmark jitter) must not drop a held
+                    # drag/freeze or interrupt a scroll repeat -- only a
+                    # dip that lasts a full hold_ms counts as a real release.
+                    if state.release_pending_since is None:
+                        state.release_pending_since = now
+                    elif (now - state.release_pending_since) * 1000.0 >= gesture_cfg.hold_ms:
+                        if gesture_cfg.action in _HOLD_ACTIONS:
+                            released.append(name)
+                        state.met_since = None
+                        state.fired_this_hold = False
+                        state.release_pending_since = None
+                    continue
                 state.met_since = None
                 state.fired_this_hold = False
+                state.release_pending_since = None
                 continue
+
+            state.release_pending_since = None
 
             if state.met_since is None:
                 state.met_since = now

@@ -278,13 +278,74 @@ def test_drag_action_fires_on_hold_and_releases_reports_the_falling_edge():
     assert engine.evaluate(_metrics(ear_a=0.1, ear_b=0.3)) == []
     assert engine.last_released == []
 
-    clock.t = 0.8  # gesture releases -- reported as a falling edge, not a fire
+    # gesture releases -- debounced the same as the press (hold_ms), so it
+    # takes a full hold_ms of continuous release before it is reported
+    clock.t = 0.8
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+    assert engine.last_released == []  # not yet -- release just started
+
+    clock.t = 1.0  # only 200ms of release so far, under the 400ms hold_ms
+    assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
+    assert engine.last_released == []
+
+    clock.t = 1.21  # 410ms of continuous release -- now it commits
     assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
     assert engine.last_released == ["blink_a"]
 
-    clock.t = 0.9  # released state settles -- no further release events
+    clock.t = 1.3  # released state settles -- no further release events
     assert engine.evaluate(_metrics(ear_a=0.3, ear_b=0.3)) == []
     assert engine.last_released == []
+
+
+def test_drag_survives_a_single_frame_flicker_below_threshold():
+    """The reported bug: mouth-open ratio (a continuous, noisy metric) dips
+    below threshold for a single frame mid-hold from tracking jitter alone.
+    That must not drop the drag -- only a dip lasting hold_ms should."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(mouth_open=GestureConfig(action="left_drag", threshold=0.35, cooldown_ms=0, hold_ms=400)),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(mouth=0.5)) == []
+    clock.t = 0.4
+    assert engine.evaluate(_metrics(mouth=0.5)) == ["mouth_open"]  # pressed
+
+    clock.t = 0.5  # a single noisy frame dips under threshold
+    assert engine.evaluate(_metrics(mouth=0.2)) == []
+    assert engine.last_released == []  # must still be held, not dropped
+
+    clock.t = 0.55  # recovers well within the 400ms grace window
+    assert engine.evaluate(_metrics(mouth=0.5)) == []
+    assert engine.last_released == []
+
+    clock.t = 3.0  # holding steady long after -- still never released
+    assert engine.evaluate(_metrics(mouth=0.5)) == []
+    assert engine.last_released == []
+
+
+def test_scroll_repeat_survives_a_single_frame_flicker_below_threshold():
+    """Same flicker-tolerance as drag, for the repeat-while-held scroll
+    path: a one-frame dip must not force a fresh hold_ms wait to resume."""
+    clock = FakeClock()
+    engine = GestureEngine(
+        _config(
+            mouth_open=GestureConfig(action="scroll_up", threshold=0.35, cooldown_ms=100, hold_ms=200)
+        ),
+        clock=clock,
+    )
+
+    clock.t = 0.0
+    assert engine.evaluate(_metrics(mouth=0.5)) == []
+    clock.t = 0.2
+    assert engine.evaluate(_metrics(mouth=0.5)) == ["mouth_open"]
+
+    clock.t = 0.25  # one noisy frame dips under threshold
+    assert engine.evaluate(_metrics(mouth=0.2)) == []
+
+    clock.t = 0.31  # recovers -- repeat resumes on the normal cooldown cadence
+    assert engine.evaluate(_metrics(mouth=0.5)) == ["mouth_open"]  # not a fresh 200ms hold wait
 
 
 def test_drag_action_never_reaching_hold_time_never_reports_a_release():
@@ -304,9 +365,11 @@ def test_drag_action_never_reaching_hold_time_never_reports_a_release():
     assert engine.last_released == []
 
 
-def test_freeze_cursor_action_fires_on_hold_and_releases_on_the_falling_edge():
-    """freeze_cursor shares the _HOLD_ACTIONS press/release machinery with
-    left_drag -- same edge semantics, different consumer."""
+def test_freeze_cursor_fires_once_per_hold_like_a_click_not_a_hold_action():
+    """freeze_cursor is a toggle (MouseController flips `frozen` on each
+    fire): one pulse per hold, no release event, and a fresh hold is needed
+    to fire again -- holding the expression continuously must not
+    re-trigger it, since that would immediately toggle back off."""
     clock = FakeClock()
     engine = GestureEngine(
         _config(eyebrow_both=GestureConfig(action="freeze_cursor", threshold=0.1, cooldown_ms=0, hold_ms=200)),
@@ -320,13 +383,19 @@ def test_freeze_cursor_action_fires_on_hold_and_releases_on_the_falling_edge():
     assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == ["eyebrow_both"]  # hold completes
     assert engine.last_released == []
 
-    clock.t = 0.5  # still held -- no repeat, no release
+    clock.t = 0.5  # still held -- no repeat fire, no release event
     assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == []
     assert engine.last_released == []
 
-    clock.t = 0.6  # released
+    clock.t = 0.6  # released -- no release event for a plain momentary action
     assert engine.evaluate(_metrics(eyebrow=0.05, eyebrow_b=0.05)) == []
-    assert engine.last_released == ["eyebrow_both"]
+    assert engine.last_released == []
+
+    clock.t = 0.7  # a fresh hold starts
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == []
+
+    clock.t = 0.9  # 200ms later -- fires again (this is what toggles it back off)
+    assert engine.evaluate(_metrics(eyebrow=0.2, eyebrow_b=0.2)) == ["eyebrow_both"]
 
 
 def test_trigger_progress_reaches_one_at_an_above_threshold_trigger():

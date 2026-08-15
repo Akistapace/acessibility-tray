@@ -21,11 +21,11 @@ from ..modules.gestures import trigger_progress
 from ..modules.tracker import FaceMetrics
 
 GESTURE_LABELS = {
-    "blink_a": "Piscar olho A",
-    "blink_b": "Piscar olho B",
+    "blink_a": "Piscar olho esquerdo",
+    "blink_b": "Piscar olho direito",
     "blink_both": "Piscar os dois olhos",
-    "eyebrow_a": "Sobrancelha A",
-    "eyebrow_b": "Sobrancelha B",
+    "eyebrow_a": "Sobrancelha esquerda",
+    "eyebrow_b": "Sobrancelha direita",
     "eyebrow_both": "As duas sobrancelhas",
     "mouth_open": "Boca aberta",
     "mouth_left": "Boca fechada p/ esquerda",
@@ -40,7 +40,7 @@ ACTION_LABELS = {
     "scroll_up": "Scroll cima",
     "scroll_down": "Scroll baixo",
     "left_drag": "Clicar e arrastar (segurar)",
-    "freeze_cursor": "Congelar cursor (segurar)",
+    "freeze_cursor": "Congelar cursor (alternar)",
 }
 ACTION_BY_LABEL = {label: action for action, label in ACTION_LABELS.items()}
 
@@ -50,17 +50,18 @@ ACTION_BY_LABEL = {label: action for action, label in ACTION_LABELS.items()}
 _REPEATING_ACTIONS = {"scroll_up", "scroll_down"}
 
 _HELP = (
-    "A barra enche conforme você se aproxima de disparar o gesto. Os rótulos "
-    "A e B dos olhos e das sobrancelhas são internos: faça o gesto e veja qual "
-    "barra reage. O tempo de espera é quanto você precisa segurar a expressão "
+    "A barra enche conforme você se aproxima de disparar o gesto. "
+    "O tempo de espera é quanto você precisa segurar a expressão "
     "para ela valer -- é o que impede piscadas naturais de virarem cliques. "
     "Em scroll, o intervalo abaixo também controla a repetição: segurando o "
     "gesto, o scroll continua rolando a cada intervalo em vez de precisar "
     "soltar e refazer. Em \"clicar e arrastar\", o botão fica pressionado "
     "enquanto o gesto for mantido e solta quando ele for desfeito. Em "
-    "\"congelar cursor\", o mouse para 100% enquanto o gesto for mantido -- "
-    "útil pra rolar ou selecionar com precisão sem o cursor balançar -- e "
-    "volta a seguir a cabeça quando o gesto for desfeito."
+    "\"congelar cursor\", cada disparo do gesto alterna: o primeiro para o "
+    "mouse 100% -- útil pra rolar ou selecionar com precisão sem o cursor "
+    "balançar -- e o próximo (gesto solto e refeito de novo) libera. Não "
+    "precisa segurar a expressão o tempo todo, o que deixa livre pra "
+    "combinar com outro gesto (ex: boca pra arrastar) enquanto congelado."
 )
 
 

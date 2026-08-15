@@ -225,20 +225,21 @@ class MouseController:
             self._drag_pressed = True
             return
         if action == "freeze_cursor":
-            self.frozen = True
+            # A toggle, not a hold: one fire locks the cursor, the next
+            # separate fire of the same gesture unlocks it -- see the note
+            # by _HOLD_ACTIONS in gestures.py for why.
+            self.frozen = not self.frozen
             return
         _ACTIONS[action](self._mouse)
 
     def release_action(self, gesture_name: str) -> None:
-        """Undoes a matching `fire_action` hold call (drag press or cursor
-        freeze). A no-op for any gesture that isn't currently holding, so it
-        is always safe to call from GestureEngine's release list."""
+        """Undoes a matching `fire_action` drag press. A no-op for any
+        gesture that isn't currently holding, so it is always safe to call
+        from GestureEngine's release list."""
         action = self._config.gestures[gesture_name].action
         if action == "left_drag" and self._drag_pressed:
             self._mouse.release(Button.left)
             self._drag_pressed = False
-        elif action == "freeze_cursor":
-            self.frozen = False
 
     def release_all_holds(self) -> None:
         """Safety net for a drag press or cursor freeze left active when

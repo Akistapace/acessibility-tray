@@ -19,6 +19,7 @@ from PIL import Image, ImageTk
 from ..modules import config as config_mod
 from ..modules.config import AppConfig
 from ..modules.engine import Engine
+from .action_buttons import ActionButtons
 from .calibration_panel import CalibrationPanel
 from .gesture_panel import GesturePanel
 
@@ -35,13 +36,19 @@ _HELP_TEXT = (
     "faz. O tempo de cada gesto é quanto você precisa segurar a expressão: é o "
     "que impede piscadas naturais de virarem cliques. Deixe em 0 ms só se "
     "quiser disparo imediato.\n\n"
-    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça. Reabrir "
-    "a janela depois não interrompe o controle; use o botão Parar para isso "
-    "de propósito.\n\n"
+    "3. Iniciar -- a janela some e o cursor passa a seguir a cabeça, já com "
+    "os ajustes atuais. Reabrir a janela depois não interrompe o controle; "
+    "use o botão Parar para isso de propósito.\n\n"
+    "4. Salvar configurações -- grava os ajustes atuais no arquivo, pra "
+    "abrirem assim da próxima vez. Iniciar/Parar e fechar esta janela não "
+    "salvam sozinhos -- só esse botão salva.\n\n"
     "Atalhos\n\n"
-    "Ctrl+Alt+P pausa e retoma. Use como quem levanta o mouse da mesa: o "
-    "cursor congela, você reposiciona a cabeça numa posição confortável, e ao "
-    "retomar o controle continua exatamente de onde parou, sem pular.\n\n"
+    "Ctrl+Alt+P pausa e retoma (o ícone da bandeja também tem essa opção). "
+    "Use como quem levanta o mouse da mesa: o cursor congela, você "
+    "reposiciona a cabeça numa posição confortável, e ao retomar o controle "
+    "continua exatamente de onde parou, sem pular. Pausado por qualquer um "
+    "desses dois jeitos, o botão grande nesta janela muda pra \"Retomar "
+    "controle do mouse\" -- clicar nele também retoma.\n\n"
     "Ctrl+Alt+O reabre esta janela. Clicar no ícone da bandeja também reabre; "
     "o botão direito no ícone mostra o menu completo.\n\n"
     "Abrir o app de novo enquanto ele já está rodando não cria uma segunda "
@@ -64,6 +71,7 @@ class ConfigWindow:
         config: AppConfig,
         config_path: str,
         on_start: Callable[[AppConfig], None],
+        action_buttons: ActionButtons | None = None,
     ) -> None:
         self._root = root
         self._engine = engine
@@ -74,12 +82,15 @@ class ConfigWindow:
         # so edits still reach the engine -- but only on an explicit save.
         self._config = copy.deepcopy(config)
         # Not part of the deep copy: no panel in this window reads or edits
-        # the keyboard button's position, so there's nothing to buffer --
-        # `_start_and_hide` reads it fresh from here at save time, so a
-        # drag that happened after this window was built is never lost.
+        # the action buttons' position, so there's nothing to buffer --
+        # `_apply_panel_edits` reads it fresh from here, so a drag that
+        # happened after this window was built is never lost.
         self._live_config = config
         self._config_path = config_path
         self._on_start = on_start
+        # None when the floating buttons failed to construct in main.py --
+        # the reset button becomes a no-op rather than crashing the window.
+        self._action_buttons = action_buttons
         self._tk_image = None
         self._after_id = None
 
@@ -117,10 +128,36 @@ class ConfigWindow:
         self._start_hover_color = self._toggle_button.cget("hover_color")
         self._update_toggle()
 
+        self._save_button = ctk.CTkButton(
+            left,
+            text="Salvar configurações",
+            height=36,
+            fg_color="transparent",
+            border_width=1,
+            command=self._on_save,
+        )
+        self._save_button.pack(fill="x", padx=10, pady=(0, 10))
+
+        ctk.CTkButton(
+            left,
+            text="Redefinir posição do teclado/microfone",
+            height=32,
+            fg_color="transparent",
+            border_width=1,
+            text_color="gray70",
+            command=self._on_reset_position,
+        ).pack(fill="x", padx=10, pady=(0, 10))
+
         ctk.CTkLabel(
             left,
-            text="Fechar esta janela não muda o controle -- use o botão acima para isso.",
+            text=(
+                "Iniciar aplica os ajustes ao controle, mas só fica salvo pra "
+                "próxima vez que você clicar em Salvar. Fechar esta janela não "
+                "muda o controle nem salva."
+            ),
             text_color="gray70",
+            justify="left",
+            wraplength=220,
         ).pack(padx=10, pady=(0, 10))
 
         tabs = ctk.CTkTabview(self._root, width=430)
@@ -193,50 +230,103 @@ class ConfigWindow:
         self._preview.configure(image=self._tk_image)
 
     # -- lifecycle -------------------------------------------------------
-    def _save_config(self) -> None:
+    def _apply_panel_edits(self) -> None:
+        """Pulls pending slider/dropdown edits from the panels into
+        self._config, and syncs the floating buttons' drag positions from
+        `_live_config` -- but never touches disk. Shared by both the
+        explicit Salvar action and Iniciar, which must apply edits to the
+        running engine even when the user never clicks Salvar."""
         self._calibration.apply_to_config()
         self._gestures.apply_to_config()
-        self._config.keyboard_button.x = self._live_config.keyboard_button.x
-        self._config.keyboard_button.y = self._live_config.keyboard_button.y
+        self._config.action_buttons.x = self._live_config.action_buttons.x
+        self._config.action_buttons.y = self._live_config.action_buttons.y
+
+    def _save_config(self) -> None:
+        """Explicit save, only ever called from the Salvar button -- Iniciar/
+        Parar/closing the window must not silently write to disk on their
+        own; see _apply_panel_edits for the in-memory-only counterpart."""
+        self._apply_panel_edits()
         config_mod.save_config(self._config_path, self._config)
 
     def _start_and_hide(self) -> None:
-        self._save_config()
+        self._apply_panel_edits()
         self._on_start(self._config)
         self._root.withdraw()
 
+    def _resume_and_hide(self) -> None:
+        """Un-pauses (e.g. paused earlier from the tray icon or Ctrl+Alt+P)
+        and hides -- same "apply pending edits, go back to head control"
+        shape as _start_and_hide, since control was never actually stopped."""
+        self._apply_panel_edits()
+        self._on_start(self._config)
+        self._engine.paused.clear()
+        self._root.withdraw()
+
     def _stop(self) -> None:
-        self._save_config()
         self._engine.control_enabled.clear()
         self._update_toggle()
 
     def _save_and_hide(self) -> None:
-        """WM_DELETE_WINDOW handler: just saves and hides, leaving
-        control_enabled exactly as it was -- closing the window must not
-        second-guess an explicit Iniciar/Parar choice."""
-        self._save_config()
+        """WM_DELETE_WINDOW handler: just hides, leaving control_enabled
+        exactly as it was -- closing the window must not second-guess an
+        explicit Iniciar/Parar choice, nor silently persist or discard
+        whatever is pending in the panels (use Salvar for that)."""
         self._root.withdraw()
 
+    def _on_save(self) -> None:
+        self._save_config()
+        self._flash_save_button()
+
+    def _on_reset_position(self) -> None:
+        """Moves the floating keyboard/mic buttons back to their default
+        corner immediately, and persists it -- a no-op if the buttons
+        failed to construct in main.py (self._action_buttons is None)."""
+        if self._action_buttons is not None:
+            self._action_buttons.reset_position()
+
+    def _flash_save_button(self) -> None:
+        """Brief text swap so clicking Salvar has visible confirmation --
+        there's no other feedback for a save that doesn't also start/stop
+        control."""
+        self._save_button.configure(text="Salvo")
+        self._root.after(1200, lambda: self._save_button.configure(text="Salvar configurações"))
+
     def _on_toggle(self) -> None:
-        if self._engine.control_enabled.is_set():
-            self._stop()
-        else:
+        if not self._engine.control_enabled.is_set():
             self._start_and_hide()
+        elif self._engine.paused.is_set():
+            self._resume_and_hide()
+        else:
+            self._stop()
 
     def _update_toggle(self) -> None:
-        if self._engine.control_enabled.is_set():
-            self._status_label.configure(text="Controle ativo")
-            self._toggle_button.configure(
-                text="Parar controle do mouse",
-                fg_color="#c0392b",
-                hover_color="#992d22",
-            )
-        else:
+        """Reflects three states, not two: stopped, paused (e.g. from the
+        tray icon or Ctrl+Alt+P -- yielded to a physical mouse but still
+        "on"), and actively tracking. Without the paused state here, this
+        window would show "Parar controle do mouse" while paused, which
+        both lies about what's currently happening and -- if clicked --
+        would stop control outright instead of the lighter resume the user
+        actually wants."""
+        if not self._engine.control_enabled.is_set():
             self._status_label.configure(text="Controle parado")
             self._toggle_button.configure(
                 text="Iniciar controle do mouse",
                 fg_color=self._start_fg_color,
                 hover_color=self._start_hover_color,
+            )
+        elif self._engine.paused.is_set():
+            self._status_label.configure(text="Controle pausado")
+            self._toggle_button.configure(
+                text="Retomar controle do mouse",
+                fg_color="#d68910",
+                hover_color="#b7790d",
+            )
+        else:
+            self._status_label.configure(text="Controle ativo")
+            self._toggle_button.configure(
+                text="Parar controle do mouse",
+                fg_color="#c0392b",
+                hover_color="#992d22",
             )
 
     def show(self) -> None:

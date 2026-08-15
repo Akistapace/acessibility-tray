@@ -12,7 +12,9 @@ rodando em segundo plano (sem janela visível), com ícone na bandeja e
 atalhos globais. O app não tem teclado próprio, mas o teclado virtual do
 Windows pode ser aberto por um círculo flutuante e arrastável que fica
 sempre visível na tela (canto inferior direito por padrão), pra quem
-também precisar digitar.
+também precisar digitar. O teclado do Windows só abre se algum campo de
+texto estiver com foco -- clique nele antes; se o círculo pulsar em
+vermelho em vez de azul, foi isso que faltou.
 
 Ver [docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md](docs/superpowers/specs/2026-08-05-facemesh-mouse-design.md)
 (design original, com os cinco gestos v1 e sem `hold_ms`),
@@ -50,8 +52,8 @@ python -m venv .venv
 ```
 
 Na primeira execução abre a janela de configuração: à esquerda ficam a
-prévia da câmera e o botão persistente "Iniciar controle do mouse"; à
-direita, três abas.
+prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
+"Salvar configurações"; à direita, três abas.
 
 - **Movimento**: não há mais gravação de extremos — o cursor se move de
   forma relativa à cabeça, como um mouse de verdade. Sliders ajustam esse
@@ -68,18 +70,18 @@ direita, três abas.
   elemento, sem precisar de gesto — desligado por padrão. Outro interruptor
   liga ou desliga o registro de cliques em `clicks.log`.
 - **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
-  aproxima de dispará-lo. Faça a expressão e veja qual barra reage pra saber
-  qual é qual (os nomes "A"/"B" de olho e sobrancelha são só internos, sem
-  relação fixa com esquerda/direita anatômica por causa do espelhamento da
-  câmera; já a boca para os lados segue o que você vê no preview). Escolha a
+  aproxima de dispará-lo. Escolha a
   ação de mouse de cada gesto e, no slider ao lado, por quanto tempo a
   expressão precisa ser segurada pra valer (padrão 400ms — bem acima de uma
   piscada natural, que dura ~100-150ms).
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
-Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar controle
-do mouse" (ou feche a janela) — a janela some e o controle do mouse fica
-ativo em background.
+Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar
+controle do mouse" — a janela some e o controle do mouse fica ativo em
+background, já com os ajustes atuais. Isso não grava nada em disco: Iniciar,
+Parar e fechar a janela (X) nunca salvam sozinhos, só aplicam ou não o
+controle. Pra manter os ajustes salvos pra próxima vez que abrir o app,
+clique em "Salvar configurações".
 
 O cursor se move de forma relativa à cabeça, como um mouse físico: `Ctrl+Alt+P`
 pausa e congela o cursor a qualquer momento — use pra "levantar o mouse",
@@ -96,12 +98,23 @@ esquerdo no ícone também reabre a config direto; botão direito mostra o
 menu completo.
 Atalhos globais: `Ctrl+Alt+P` pausa/retoma, `Ctrl+Alt+O` reabre a config.
 
-O teclado virtual do Windows é aberto por um círculo azul flutuante, sempre
-visível por cima de tudo, no canto inferior direito por padrão -- inclusive
-enquanto a config está aberta, já que abrir a config pausa o controle pela
-cabeça. Clique nele (funciona pelo cursor controlado pela cabeça também)
-para abrir o teclado; com o mouse físico ou trackpad, arraste-o para
-qualquer lugar da tela -- a posição escolhida fica salva entre sessões.
+Um par de círculos flutuantes -- teclado (azul) e microfone (vermelho) --
+fica sempre visível por cima de tudo, agrupado numa única janelinha no
+canto inferior direito por padrão -- inclusive enquanto a config está
+aberta, já que abrir a config pausa o controle pela cabeça. Os dois se
+movem juntos: arrastar qualquer um dos dois (mouse físico, trackpad, ou o
+cursor controlado pela cabeça) move o par inteiro, mantendo-os sempre
+próximos; a posição escolhida fica salva entre sessões. Um botão em
+"Redefinir posição do teclado/microfone" na janela de configuração devolve
+o par pro canto padrão a qualquer momento.
+
+Clicar no ícone de teclado (funciona pelo cursor controlado pela cabeça
+também) abre o teclado touch do Windows -- não o antigo `osk.exe`, porque
+esse exige elevação e não responde a clique sintético; abre no modo
+flutuante compacto em vez de ocupar a largura toda da tela. Clicar no
+ícone de microfone ativa a digitação por voz nativa do Windows (o mesmo
+recurso do atalho Win+H) no campo de texto que estiver em foco -- pra
+quem precisa transcrever fala em vez de digitar.
 
 Cada clique disparado por gesto mostra um pulso azul na posição do cursor,
 pra confirmar visualmente que o clique aconteceu — útil porque piscar ou

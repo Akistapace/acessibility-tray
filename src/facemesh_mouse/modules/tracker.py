@@ -32,9 +32,8 @@ EYE_OUTER_B = 263
 # uses distance(pos[0], pos[3]), which is symmetric. For measuring face width,
 # use the separate EYE_OUTER_A and EYE_OUTER_B constants which are guaranteed
 # to be the temporal corners.
-# Labels "left"/"right" are an internal convention only (see README) --
-# use the config GUI's live preview to see which indicator reacts to which
-# physical eye and map gestures accordingly.
+# A = physical left eye, B = physical right eye (confirmed against the
+# mirrored preview; see GESTURE_LABELS in ui/gesture_panel.py).
 EYE_A = [33, 160, 158, 133, 153, 144]
 EYE_B = [362, 385, 387, 263, 373, 380]
 

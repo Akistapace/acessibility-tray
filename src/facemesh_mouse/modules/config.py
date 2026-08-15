@@ -117,10 +117,11 @@ def _clamped(raw_cal: dict, field: str, fallback: float) -> float:
 
 
 @dataclass
-class KeyboardButtonConfig:
-    """Screen position of the floating keyboard-launcher button, in pixels
-    (top-left corner). `None` means "never dragged" -- the button falls
-    back to its default bottom-right corner (see keyboard_button.py)."""
+class ActionButtonsConfig:
+    """Screen position of the floating keyboard+mic button group, in pixels
+    (top-left corner). `None` means "never dragged" -- the group falls back
+    to its default bottom-right corner (see action_buttons.py). The two
+    buttons move as one unit, so there is only one saved position for both."""
 
     x: float | None = None
     y: float | None = None
@@ -147,7 +148,7 @@ class GestureConfig:
 class AppConfig:
     calibration: CalibrationConfig = field(default_factory=CalibrationConfig)
     gestures: dict = field(default_factory=dict)
-    keyboard_button: KeyboardButtonConfig = field(default_factory=KeyboardButtonConfig)
+    action_buttons: ActionButtonsConfig = field(default_factory=ActionButtonsConfig)
 
 
 def default_config() -> AppConfig:
@@ -236,13 +237,17 @@ def load_config(path: str | Path) -> AppConfig:
         for name in GESTURE_NAMES
     }
 
-    raw_kb = raw.get("keyboard_button", {})
-    keyboard_button = KeyboardButtonConfig(
-        x=_optional_float(raw_kb.get("x")),
-        y=_optional_float(raw_kb.get("y")),
+    raw_buttons = raw.get("action_buttons", {})
+    action_buttons = ActionButtonsConfig(
+        x=_optional_float(raw_buttons.get("x")),
+        y=_optional_float(raw_buttons.get("y")),
     )
 
-    return AppConfig(calibration=calibration, gestures=gestures, keyboard_button=keyboard_button)
+    return AppConfig(
+        calibration=calibration,
+        gestures=gestures,
+        action_buttons=action_buttons,
+    )
 
 
 def save_config(path: str | Path, config: AppConfig) -> None:
@@ -251,6 +256,6 @@ def save_config(path: str | Path, config: AppConfig) -> None:
     data = {
         "calibration": asdict(config.calibration),
         "gestures": {name: asdict(cfg) for name, cfg in config.gestures.items()},
-        "keyboard_button": asdict(config.keyboard_button),
+        "action_buttons": asdict(config.action_buttons),
     }
     path.write_text(json.dumps(data, indent=2), encoding="utf-8")

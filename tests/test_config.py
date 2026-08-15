@@ -253,40 +253,40 @@ def test_non_bool_dwell_click_enabled_value_falls_back_to_the_default(tmp_path):
     assert config_mod.load_config(path).calibration.dwell_click_enabled is False
 
 
-def test_default_config_has_no_saved_keyboard_button_position():
-    kb = config_mod.default_config().keyboard_button
-    assert kb.x is None
-    assert kb.y is None
+def test_default_config_has_no_saved_action_buttons_position():
+    buttons = config_mod.default_config().action_buttons
+    assert buttons.x is None
+    assert buttons.y is None
 
 
-def test_keyboard_button_position_round_trips(tmp_path):
+def test_action_buttons_position_round_trips(tmp_path):
     path = tmp_path / "config.json"
     original = config_mod.default_config()
-    original.keyboard_button.x = 120.5
-    original.keyboard_button.y = 640.0
+    original.action_buttons.x = 120.5
+    original.action_buttons.y = 640.0
 
     config_mod.save_config(path, original)
     loaded = config_mod.load_config(path)
 
-    assert loaded.keyboard_button.x == 120.5
-    assert loaded.keyboard_button.y == 640.0
+    assert loaded.action_buttons.x == 120.5
+    assert loaded.action_buttons.y == 640.0
 
 
-def test_missing_keyboard_button_section_defaults_to_none(tmp_path):
+def test_missing_action_buttons_section_defaults_to_none(tmp_path):
     path = tmp_path / "config.json"
     path.write_text(json.dumps({"calibration": {}, "gestures": {}}))
 
     loaded = config_mod.load_config(path)
 
-    assert loaded.keyboard_button.x is None
-    assert loaded.keyboard_button.y is None
+    assert loaded.action_buttons.x is None
+    assert loaded.action_buttons.y is None
 
 
-def test_non_numeric_keyboard_button_position_falls_back_to_none(tmp_path):
+def test_non_numeric_action_buttons_position_falls_back_to_none(tmp_path):
     path = tmp_path / "config.json"
-    path.write_text(json.dumps({"keyboard_button": {"x": "nope", "y": None}}))
+    path.write_text(json.dumps({"action_buttons": {"x": "nope", "y": None}}))
 
     loaded = config_mod.load_config(path)
 
-    assert loaded.keyboard_button.x is None
-    assert loaded.keyboard_button.y is None
+    assert loaded.action_buttons.x is None
+    assert loaded.action_buttons.y is None
