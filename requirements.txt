@@ -1,7 +1,5 @@
 opencv-contrib-python==4.11.0.86
 mediapipe==0.10.21
 pynput
-pystray
 Pillow
 numpy<2
-customtkinter==6.0.0

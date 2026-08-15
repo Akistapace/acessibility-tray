@@ -43,13 +43,26 @@ para o design completo.
 ```powershell
 python -m venv .venv
 .venv\Scripts\pip install -r requirements-dev.txt
+cd electron
+npm install
 ```
 
-## Rodar
+## Rodar (dev)
+
+Duas partes, cada uma no seu terminal:
 
 ```powershell
+# Terminal 1: backend Python (headless)
 .venv\Scripts\python run.py
 ```
+
+```powershell
+# Terminal 2: Electron
+cd electron
+npm run dev
+```
+
+O Electron abre a janela de configuração automaticamente na primeira execução.
 
 Na primeira execução abre a janela de configuração: à esquerda ficam a
 prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
@@ -139,27 +152,23 @@ cessão de controle ao mouse físico, log de cliques, load/save de config)
 sem precisar de câmera real. Câmera, bandeja, atalhos e a aparência visual
 do pulso exigem checklist manual (ver spec).
 
-## Build do executável (.exe)
+## Build do instalador (.exe)
 
 ```powershell
-.venv\Scripts\pip install pyinstaller
-.venv\Scripts\pyinstaller --onefile --windowed --paths src --collect-data mediapipe --collect-all cv2 --collect-data customtkinter --icon assets/icon.ico --add-data "assets/icon.ico;assets" -n facemesh-mouse run.py
+cd electron
+npm run dist:full
 ```
 
-`--paths src` é obrigatório: o código roda com `src/` adicionado ao
-`sys.path` em tempo de execução (ver `run.py`), mas a análise estática do
-PyInstaller não enxerga isso sozinha — sem essa flag o build "funciona"
-mas o exe falha com `ModuleNotFoundError: No module named 'facemesh_mouse'`.
+Esse comando builda o backend Python primeiro (`pyinstaller backend.spec`,
+a partir da raiz do projeto, gerando `dist/facemesh-mouse-backend.exe`) e
+depois roda o `electron-builder`, que empacota o Electron junto com o exe do
+backend num instalador único (`extraResources` em
+`electron/electron-builder.yml`).
 
-`--collect-data customtkinter` também é obrigatório: o CustomTkinter carrega
-temas em JSON e fontes em tempo de execução, e a análise estática do
-PyInstaller não enxerga esses arquivos — sem a flag o exe abre e quebra ao
-montar a janela.
+O instalador fica em `electron/release/FaceMesh Mouse Setup <versão>.exe`.
+Pontos de atenção:
 
-O executável fica em `dist/facemesh-mouse.exe` (~110MB testado). Pontos de
-atenção:
-
-- Arquivo grande (~200–400MB) por causa do MediaPipe/OpenCV/NumPy embutidos.
-- Primeira execução é mais lenta (descompacta pra pasta temporária).
-- Exe não assinado → Windows SmartScreen avisa no primeiro uso.
-- Precisa conceder permissão de câmera do Windows ao exe na primeira vez.
+- Arquivo grande por causa do MediaPipe/OpenCV/NumPy embutidos no backend.
+- Primeira execução é mais lenta (o backend descompacta pra pasta temporária).
+- Instalador não assinado → Windows SmartScreen avisa no primeiro uso.
+- Precisa conceder permissão de câmera do Windows ao app na primeira vez.
