@@ -78,6 +78,23 @@ def test_save_config_command_writes_to_disk(tmp_path):
     assert config_mod.load_config(path).calibration.sensitivity_x == 0.07
 
 
+def test_save_config_command_merges_partial_payload_onto_disk(tmp_path):
+    path = tmp_path / "config.json"
+    config_mod.save_config(path, _config_with_sensitivity(0.09))
+    engine = Engine(config_mod.default_config())
+    server = backend.BackendServer(engine, config_mod.default_config(), config_path=str(path))
+
+    server.handle_command({
+        "type": "save_config",
+        "config": {"action_buttons": {"x": 120.0, "y": 640.0}},
+    })
+
+    reloaded = config_mod.load_config(path)
+    assert reloaded.calibration.sensitivity_x == 0.09
+    assert reloaded.action_buttons.x == 120.0
+    assert reloaded.action_buttons.y == 640.0
+
+
 def test_open_keyboard_command_sends_keyboard_result(monkeypatch):
     sent = []
     server = backend.BackendServer(

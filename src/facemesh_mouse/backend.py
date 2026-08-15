@@ -94,8 +94,15 @@ class BackendServer:
         self._sync_click_logging(self.config)
 
     def _cmd_save_config(self, command: dict) -> None:
-        config = config_mod.config_from_dict(command.get("config", {}))
-        config_mod.save_config(self._config_path, config)
+        on_disk = config_mod.load_config(self._config_path)
+        on_disk_dict = config_mod.config_to_dict(on_disk)
+        payload = command.get("config", {})
+        merged = {**on_disk_dict, **payload}
+        if "calibration" in payload:
+            merged["calibration"] = {**on_disk_dict["calibration"], **payload["calibration"]}
+        if "action_buttons" in payload:
+            merged["action_buttons"] = {**on_disk_dict["action_buttons"], **payload["action_buttons"]}
+        config_mod.save_config(self._config_path, config_mod.config_from_dict(merged))
 
     def _cmd_open_keyboard(self, command: dict) -> None:
         x, y = command.get("x", 0), command.get("y", 0)
