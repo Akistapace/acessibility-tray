@@ -7,7 +7,8 @@
     "build": "tsc -p tsconfig.json && node scripts/buildRenderer.mjs && node scripts/copyStaticAssets.mjs",
     "dev": "npm run build && electron .",
     "test": "vitest run",
-    "dist": "npm run build && electron-builder --config electron-builder.yml"
+    "dist": "npm run build && electron-builder --config electron-builder.yml",
+    "dist:full": "cd .. && .venv\\Scripts\\pyinstaller backend.spec --distpath dist && cd electron && npm run dist"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",

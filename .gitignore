@@ -6,6 +6,7 @@ config.json
 build/
 dist/
 *.spec
+!backend.spec
 .superpowers/
 clicks.log*
 .claude/worktrees/
