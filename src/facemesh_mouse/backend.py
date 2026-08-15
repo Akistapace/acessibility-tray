@@ -8,6 +8,7 @@ camera-dependent code paths).
 """
 from __future__ import annotations
 
+import base64
 import sys
 from typing import Callable
 
@@ -16,10 +17,36 @@ from .modules import config as config_mod
 from .modules.config import AppConfig
 from .modules.engine import Engine
 from .modules import ipc_protocol as proto
+from .modules.gestures import trigger_progress
+from .modules import preview as preview_mod
 from . import virtual_keyboard
 from . import voice_typing
 
 CONFIG_PATH = "config.json"
+
+
+def _status_snapshot(engine: Engine) -> dict:
+    mouse_controller = engine.mouse_controller
+    return {
+        "control_enabled": engine.control_enabled.is_set(),
+        "paused": engine.paused.is_set(),
+        "no_face": engine.no_face.is_set(),
+        "yielded": mouse_controller.yielded if mouse_controller is not None else False,
+    }
+
+
+def _encode_frame(frame, metrics, config: AppConfig, seq: int) -> dict:
+    jpeg_bytes = preview_mod.render_preview_jpeg(frame, metrics)
+    jpeg_b64 = base64.b64encode(jpeg_bytes).decode("ascii")
+    gesture_progress = {
+        name: (
+            trigger_progress(name, metrics, gesture_cfg.threshold)
+            if metrics is not None
+            else 0.0
+        )
+        for name, gesture_cfg in config.gestures.items()
+    }
+    return proto.frame_message(jpeg_b64, gesture_progress, seq)
 
 
 class BackendServer:

@@ -1,3 +1,5 @@
+import numpy as np
+
 from facemesh_mouse import backend
 from facemesh_mouse.modules import config as config_mod
 from facemesh_mouse.modules.config import AppConfig
@@ -113,3 +115,30 @@ def test_open_voice_typing_command_calls_toggle(monkeypatch):
 def test_unknown_command_type_is_ignored():
     server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
     server.handle_command({"type": "not_a_real_command"})  # must not raise
+
+
+def test_status_snapshot_reflects_engine_flags():
+    engine = Engine(config_mod.default_config())
+    engine.paused.set()
+
+    assert backend._status_snapshot(engine) == {
+        "control_enabled": False,
+        "paused": True,
+        "no_face": False,
+        "yielded": False,
+    }
+
+
+def test_encode_frame_produces_a_frame_message_with_progress_for_every_gesture():
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+    config = config_mod.default_config()
+
+    message = backend._encode_frame(frame, None, config, seq=3)
+
+    assert message["type"] == "frame"
+    assert message["seq"] == 3
+    assert set(message["gesture_progress"]) == set(config_mod.GESTURE_NAMES)
+    # No face detected this frame -- every bar reads empty, matching the
+    # no_face status pushed alongside it, rather than freezing at a stale
+    # value from the last frame that had a face.
+    assert all(v == 0.0 for v in message["gesture_progress"].values())
