@@ -1,8 +1,9 @@
-import { app, dialog } from "electron";
+import { app, dialog, globalShortcut } from "electron";
 import fs from "node:fs";
 import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
 import { wireBackendRelay } from "./ipcRelay";
+import { createTray } from "./tray";
 import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
 import { createOverlayWindow } from "./windows/overlayWindow";
 import { createButtonsWindow, resetButtonsPosition } from "./windows/buttonsWindow";
@@ -70,6 +71,7 @@ app.whenReady().then(() => {
   createOverlayWindow();
   const saved = readSavedButtonsPosition();
   createButtonsWindow(backend, saved.x, saved.y);
+  createTray(backend);
 });
 
 export { showConfigWindow, resetButtonsPosition };
@@ -78,6 +80,10 @@ app.on("before-quit", () => {
   quitting = true;
   backend?.send({ type: "stop" });
   backend?.stop();
+});
+
+app.on("will-quit", () => {
+  globalShortcut.unregisterAll();
 });
 
 app.on("window-all-closed", () => {
