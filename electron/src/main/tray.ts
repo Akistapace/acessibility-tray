@@ -15,7 +15,7 @@ let tray: Tray | null = null;
 let lastStatus: TrayStatus = { control_enabled: false, paused: false, no_face: false, yielded: false };
 
 export function createTray(backend: BackendProcess): Tray {
-  const iconPath = path.join(__dirname, "..", "..", "assets", ICON_FILES.running);
+  const iconPath = path.join(__dirname, "..", "assets", ICON_FILES.running);
   tray = new Tray(nativeImage.createFromPath(iconPath));
   tray.setToolTip("FaceMesh Mouse");
 
@@ -35,7 +35,7 @@ export function createTray(backend: BackendProcess): Tray {
     if (message.type !== "status") return;
     lastStatus = message as unknown as TrayStatus;
     const state = computeTrayState(lastStatus);
-    tray?.setImage(nativeImage.createFromPath(path.join(__dirname, "..", "..", "assets", ICON_FILES[state.icon])));
+    tray?.setImage(nativeImage.createFromPath(path.join(__dirname, "..", "assets", ICON_FILES[state.icon])));
     tray?.setToolTip(state.title);
   });
 
