@@ -1,6 +1,7 @@
 import { app, dialog } from "electron";
 import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
+import { wireBackendRelay } from "./ipcRelay";
 
 const gotLock = app.requestSingleInstanceLock();
 if (!gotLock) {
@@ -51,6 +52,7 @@ app.whenReady().then(() => {
 
   backend.on("log", (text: string) => console.error(`[backend] ${text}`));
   backend.start();
+  wireBackendRelay(backend);
 });
 
 app.on("before-quit", () => {
