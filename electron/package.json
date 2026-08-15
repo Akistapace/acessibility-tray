@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copyStaticAssets.mjs",
+    "build": "tsc -p tsconfig.json && node scripts/buildRenderer.mjs && node scripts/copyStaticAssets.mjs",
     "dev": "npm run build && electron .",
     "test": "vitest run",
     "dist": "npm run build && electron-builder --config electron-builder.yml"
