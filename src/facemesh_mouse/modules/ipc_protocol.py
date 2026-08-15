@@ -58,3 +58,7 @@ def keyboard_result_message(opened: bool, x: int, y: int) -> dict:
 
 def error_message(message: str) -> dict:
     return {"type": "error", "message": message}
+
+
+def config_message(config: dict) -> dict:
+    return {"type": "config", "config": config}

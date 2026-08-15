@@ -63,3 +63,10 @@ def test_keyboard_result_message_shape():
 
 def test_error_message_shape():
     assert proto.error_message("camera") == {"type": "error", "message": "camera"}
+
+
+def test_config_message_shape():
+    assert proto.config_message({"calibration": {}}) == {
+        "type": "config",
+        "config": {"calibration": {}},
+    }

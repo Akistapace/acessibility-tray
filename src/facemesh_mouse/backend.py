@@ -105,6 +105,9 @@ class BackendServer:
     def _cmd_open_voice_typing(self, _command: dict) -> None:
         voice_typing.toggle_voice_typing()
 
+    def _cmd_get_config(self, _command: dict) -> None:
+        self._send(proto.config_message(config_mod.config_to_dict(self.config)))
+
     def _sync_click_logging(self, config: AppConfig) -> None:
         try:
             if config.calibration.click_logging_enabled:

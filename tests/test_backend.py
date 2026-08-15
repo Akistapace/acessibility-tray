@@ -112,6 +112,18 @@ def test_open_voice_typing_command_calls_toggle(monkeypatch):
     assert calls == [1]
 
 
+def test_get_config_command_sends_the_current_config(monkeypatch):
+    sent = []
+    config = _config_with_sensitivity(0.06)
+    server = backend.BackendServer(
+        Engine(config_mod.default_config()), config, send=sent.append
+    )
+
+    server.handle_command({"type": "get_config"})
+
+    assert sent == [{"type": "config", "config": config_mod.config_to_dict(config)}]
+
+
 def test_unknown_command_type_is_ignored():
     server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
     server.handle_command({"type": "not_a_real_command"})  # must not raise
