@@ -38,12 +38,18 @@ export interface ErrorMessage {
   message: string;
 }
 
+export interface ConfigMessage {
+  type: "config";
+  config: Record<string, unknown>;
+}
+
 export type BackendMessage =
   | FrameMessage
   | StatusMessage
   | ActionMessage
   | KeyboardResultMessage
-  | ErrorMessage;
+  | ErrorMessage
+  | ConfigMessage;
 
 export function encodeMessage(message: Record<string, unknown>): string {
   return JSON.stringify(message) + "\n";

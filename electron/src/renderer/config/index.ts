@@ -55,10 +55,12 @@ function renderGestureRows(): void {
           .join("")}
       </select>
       <label>Espera (ms) <input type="range" id="hold-${name}" min="0" max="1000" step="10" /></label>
+      <label>Intervalo (ms) <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" /></label>
     `;
     container.appendChild(row);
     (row.querySelector(`#action-${name}`) as HTMLSelectElement).value = gesture.action;
     (row.querySelector(`#hold-${name}`) as HTMLInputElement).value = String(gesture.hold_ms);
+    (row.querySelector(`#cooldown-${name}`) as HTMLInputElement).value = String(gesture.cooldown_ms);
   }
 }
 
@@ -84,6 +86,10 @@ function readFormIntoConfig(): void {
     if (!actionEl || !holdEl || !currentConfig.gestures[name]) continue;
     currentConfig.gestures[name].action = actionEl.value;
     currentConfig.gestures[name].hold_ms = Number(holdEl.value);
+    const cooldownEl = document.getElementById(`cooldown-${name}`) as HTMLInputElement | null;
+    if (cooldownEl && currentConfig.gestures[name]) {
+      currentConfig.gestures[name].cooldown_ms = Number(cooldownEl.value);
+    }
   }
 }
 
@@ -98,6 +104,9 @@ toggleButton.addEventListener("click", () => {
   const state = computeToggleState(lastStatus);
   window.backend.send({ type: "update_config", config: currentConfig });
   window.backend.send({ type: state.nextCommand });
+  if (state.nextCommand === "start" || state.nextCommand === "resume") {
+    window.close();
+  }
 });
 
 saveButton.addEventListener("click", () => {
@@ -128,5 +137,11 @@ window.backend.on("frame", (message) => {
   }
 });
 
+window.backend.on("config", (message) => {
+  currentConfig = (message as { config: AppConfigJson }).config;
+  applyConfigToForm();
+});
+
 applyConfigToForm();
 updateToggleButton();
+window.backend.send({ type: "get_config" });
