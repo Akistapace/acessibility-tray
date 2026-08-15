@@ -10,10 +10,19 @@ declare global {
 }
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
-canvas.width = window.screen.width;
-canvas.height = window.screen.height;
+canvas.width = window.innerWidth;
+canvas.height = window.innerHeight;
 const ctx = canvas.getContext("2d")!;
 const tooltip = document.getElementById("tooltip") as HTMLDivElement;
+
+// Incoming x/y coordinates are absolute virtual-desktop pixels (from
+// pynput on the Python side). This window's canvas origin (0, 0)
+// corresponds to the window's own screen position -- (window.screenX,
+// window.screenY) -- which is (minX, minY) of the display union computed
+// in overlayWindow.ts, not (0, 0). Translate before drawing.
+function toLocal(x: number, y: number): { x: number; y: number } {
+  return { x: x - window.screenX, y: y - window.screenY };
+}
 
 function drawPulse(x: number, y: number, color: string): void {
   const steps = 10;
@@ -44,15 +53,17 @@ function showTooltip(x: number, y: number, text: string): void {
 
 window.backend.on("action", (message) => {
   const action = message as { x: number; y: number };
-  drawPulse(action.x, action.y, RING_COLOR);
+  const { x, y } = toLocal(action.x, action.y);
+  drawPulse(x, y, RING_COLOR);
 });
 
 window.backend.on("keyboard_result", (message) => {
   const result = message as { opened: boolean; x: number; y: number };
+  const { x, y } = toLocal(result.x, result.y);
   if (result.opened) {
-    drawPulse(result.x, result.y, RING_COLOR);
+    drawPulse(x, y, RING_COLOR);
   } else {
-    drawPulse(result.x, result.y, WARNING_COLOR);
-    showTooltip(result.x, result.y, "Clique num campo de texto antes de abrir o teclado");
+    drawPulse(x, y, WARNING_COLOR);
+    showTooltip(x, y, "Clique num campo de texto antes de abrir o teclado");
   }
 });
