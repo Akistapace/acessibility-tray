@@ -9,7 +9,9 @@ camera-dependent code paths).
 from __future__ import annotations
 
 import base64
+import ctypes
 import sys
+import threading
 from typing import Callable
 
 from .modules import click_log
@@ -23,6 +25,8 @@ from . import virtual_keyboard
 from . import voice_typing
 
 CONFIG_PATH = "config.json"
+STATUS_POLL_INTERVAL_S = 0.2
+FRAME_INTERVAL_S = 1 / 30
 
 
 def _status_snapshot(engine: Engine) -> dict:
@@ -109,3 +113,79 @@ class BackendServer:
                 click_log.disable()
         except OSError as exc:
             print(f"facemesh-mouse: click log setup failed ({exc!r})", file=sys.stderr)
+
+
+def _redirect_prints_to_stderr() -> None:
+    """stdout is reserved for protocol lines -- every diagnostic print in
+    this process, including ones raised deep in virtual_keyboard.py or
+    voice_typing.py, must land on stderr or it corrupts the line-
+    delimited JSON stream Electron is parsing."""
+    sys.stdout = sys.stderr
+
+
+def _primary_screen_size() -> tuple[int, int]:
+    return (
+        ctypes.windll.user32.GetSystemMetrics(0),
+        ctypes.windll.user32.GetSystemMetrics(1),
+    )
+
+
+def _status_loop(engine: Engine, send: Callable[[dict], None], stop: threading.Event) -> None:
+    last = None
+    while not stop.is_set():
+        current = _status_snapshot(engine)
+        if current != last:
+            send(proto.status_message(**current))
+            last = current
+        stop.wait(STATUS_POLL_INTERVAL_S)
+
+
+def _frame_loop(
+    engine: Engine, server: "BackendServer", send: Callable[[dict], None], stop: threading.Event
+) -> None:
+    seq = 0
+    while not stop.is_set():
+        if server.preview_enabled:
+            frame, metrics = engine.state.snapshot()
+            if frame is not None:
+                send(_encode_frame(frame, metrics, server.config, seq))
+                seq += 1
+        stop.wait(FRAME_INTERVAL_S)
+
+
+def main() -> None:
+    real_stdout = sys.stdout
+    _redirect_prints_to_stderr()
+    config = config_mod.load_config(CONFIG_PATH)
+
+    def send(message: dict) -> None:
+        proto.write_message(real_stdout, message)
+
+    def on_action(gesture_name: str, action: str, position: tuple[int, int]) -> None:
+        click_log.record(gesture_name, action, position)
+        send(proto.action_message(gesture_name, action, position[0], position[1]))
+
+    engine = Engine(config, on_action=on_action)
+    server = BackendServer(engine, config, config_path=CONFIG_PATH, send=send)
+    server._sync_click_logging(config)
+
+    if not engine.open_camera():
+        send(proto.error_message("camera"))
+        return
+
+    engine.start(_primary_screen_size())
+
+    stop = threading.Event()
+    threading.Thread(target=_status_loop, args=(engine, send, stop), daemon=True).start()
+    threading.Thread(target=_frame_loop, args=(engine, server, send, stop), daemon=True).start()
+
+    try:
+        for command in proto.read_messages(sys.stdin):
+            server.handle_command(command)
+    finally:
+        stop.set()
+        engine.stop()
+
+
+if __name__ == "__main__":
+    main()
