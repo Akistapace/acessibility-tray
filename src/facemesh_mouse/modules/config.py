@@ -182,20 +182,15 @@ def _merge_gesture(name: str, raw: dict) -> GestureConfig:
     )
 
 
-def load_config(path: str | Path) -> AppConfig:
-    """Loads config from `path`, filling in defaults for missing fields.
+def config_to_dict(config: AppConfig) -> dict:
+    return {
+        "calibration": asdict(config.calibration),
+        "gestures": {name: asdict(cfg) for name, cfg in config.gestures.items()},
+        "action_buttons": asdict(config.action_buttons),
+    }
 
-    Falls back to a full default config if the file is missing or invalid.
-    """
-    path = Path(path)
-    if not path.exists():
-        return default_config()
 
-    try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError, TypeError, ValueError):
-        return default_config()
-
+def config_from_dict(raw: dict) -> AppConfig:
     default = default_config()
     # Pre-optical-flow keys (x_min, x_max, y_min, y_max, smoothing,
     # deadzone_px, sensitivity) are simply not read here, so they fall away
@@ -250,12 +245,24 @@ def load_config(path: str | Path) -> AppConfig:
     )
 
 
+def load_config(path: str | Path) -> AppConfig:
+    """Loads config from `path`, filling in defaults for missing fields.
+
+    Falls back to a full default config if the file is missing or invalid.
+    """
+    path = Path(path)
+    if not path.exists():
+        return default_config()
+
+    try:
+        raw = json.loads(path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError, TypeError, ValueError):
+        return default_config()
+
+    return config_from_dict(raw)
+
+
 def save_config(path: str | Path, config: AppConfig) -> None:
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
-    data = {
-        "calibration": asdict(config.calibration),
-        "gestures": {name: asdict(cfg) for name, cfg in config.gestures.items()},
-        "action_buttons": asdict(config.action_buttons),
-    }
-    path.write_text(json.dumps(data, indent=2), encoding="utf-8")
+    path.write_text(json.dumps(config_to_dict(config), indent=2), encoding="utf-8")

@@ -290,3 +290,16 @@ def test_non_numeric_action_buttons_position_falls_back_to_none(tmp_path):
 
     assert loaded.action_buttons.x is None
     assert loaded.action_buttons.y is None
+
+
+def test_config_to_dict_from_dict_round_trip():
+    original = config_mod.default_config()
+    original.calibration.sensitivity_x = 0.04
+    original.gestures["mouth_open"].action = "scroll_down"
+    original.action_buttons.x = 12.0
+
+    restored = config_mod.config_from_dict(config_mod.config_to_dict(original))
+
+    assert restored.calibration.sensitivity_x == 0.04
+    assert restored.gestures["mouth_open"].action == "scroll_down"
+    assert restored.action_buttons.x == 12.0
