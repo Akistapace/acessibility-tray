@@ -17,62 +17,81 @@ function readSavedButtonsPosition(): { x: number | null; y: number | null } {
   }
 }
 
-const gotLock = app.requestSingleInstanceLock();
-if (!gotLock) {
-  app.quit();
-}
-
 export let backend: BackendProcess;
 let quitting = false;
 
-app.whenReady().then(() => {
-  const { command, args } = resolveBackendCommand(app.isPackaged, process.resourcesPath);
-  backend = new BackendProcess(command, args);
-
-  backend.on("message", (message: { type: string; message?: string }) => {
-    if (message.type !== "error") return;
-    // Today's only real error case: the camera failed to open. The
-    // backend sends this once, at startup, then returns without ever
-    // starting its push loops -- there is nothing left running to
-    // recover, so this is fatal.
-    dialog.showErrorBox(
-      "FaceMesh Mouse",
-      "Não foi possível acessar a webcam. Verifique se ela está conectada e se " +
-        "a permissão de câmera do Windows está ativa."
-    );
-    app.quit();
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  // app.quit() is async, so everything below has to sit in the else
+  // branch -- otherwise the losing instance would still spawn its own
+  // backend and windows before the quit lands.
+  app.quit();
+} else {
+  // Relaunching while a copy is already running reopens the config
+  // window instead of starting a second app, replacing the old
+  // single_instance.py behaviour.
+  app.on("second-instance", () => {
+    showConfigWindow();
   });
 
-  backend.on("exit", (code) => {
-    if (quitting || code === 0) return;
-    // The backend died mid-session (not from our own before-quit) --
-    // this failure mode doesn't exist in the old Tkinter app, where
-    // engine and UI shared one process and a crash took both down
-    // together silently. Here the window would otherwise sit frozen
-    // with a dead backend behind it, so ask instead.
-    const choice = dialog.showMessageBoxSync({
-      type: "error",
-      message: "FaceMesh Mouse",
-      detail: `O processo de rastreamento parou inesperadamente (código ${code}).`,
-      buttons: ["Reiniciar", "Sair"],
-      defaultId: 0,
-    });
-    if (choice === 0) {
-      backend.start();
-    } else {
+  app.whenReady().then(() => {
+    const { command, args } = resolveBackendCommand(app.isPackaged, process.resourcesPath);
+    backend = new BackendProcess(command, args);
+
+    backend.on("message", (message: { type: string; message?: string }) => {
+      if (message.type !== "error") return;
+      // Today's only real error case: the camera failed to open. The
+      // backend sends this once, at startup, then returns without ever
+      // starting its push loops -- there is nothing left running to
+      // recover, so this is fatal.
+      dialog.showErrorBox(
+        "FaceMesh Mouse",
+        "Não foi possível acessar a webcam. Verifique se ela está conectada e se " +
+          "a permissão de câmera do Windows está ativa."
+      );
       app.quit();
+    });
+
+    backend.on("exit", (code) => {
+      if (quitting || code === 0) return;
+      // The backend died mid-session (not from our own before-quit) --
+      // this failure mode doesn't exist in the old Tkinter app, where
+      // engine and UI shared one process and a crash took both down
+      // together silently. Here the window would otherwise sit frozen
+      // with a dead backend behind it, so ask instead.
+      const choice = dialog.showMessageBoxSync({
+        type: "error",
+        message: "FaceMesh Mouse",
+        detail: `O processo de rastreamento parou inesperadamente (código ${code}).`,
+        buttons: ["Reiniciar", "Sair"],
+        defaultId: 0,
+      });
+      if (choice === 0) {
+        backend.start();
+      } else {
+        app.quit();
+      }
+    });
+
+    backend.on("log", (text: string) => console.error(`[backend] ${text}`));
+    backend.start();
+    wireBackendRelay(backend);
+    createConfigWindow(backend);
+    createOverlayWindow();
+    const saved = readSavedButtonsPosition();
+    createButtonsWindow(backend, saved.x, saved.y);
+    createTray(backend);
+
+    // Same launch behaviour as the old Tkinter main.py: a first run (no
+    // config.json yet) opens the config window and stays stopped, while
+    // every later run starts control right away with no window shown.
+    if (fs.existsSync("config.json")) {
+      backend.send({ type: "start" });
+    } else {
+      showConfigWindow();
     }
   });
-
-  backend.on("log", (text: string) => console.error(`[backend] ${text}`));
-  backend.start();
-  wireBackendRelay(backend);
-  createConfigWindow(backend);
-  createOverlayWindow();
-  const saved = readSavedButtonsPosition();
-  createButtonsWindow(backend, saved.x, saved.y);
-  createTray(backend);
-});
+}
 
 export { showConfigWindow, resetButtonsPosition };
 
