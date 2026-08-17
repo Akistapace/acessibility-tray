@@ -49,15 +49,14 @@ npm install
 
 ## Rodar (dev)
 
-Duas partes, cada uma no seu terminal:
+Um único terminal: o próprio Electron sobe o backend Python (`run.py`) como
+processo filho, então não rode `run.py` à parte — dois backends brigariam
+pela mesma webcam. Como o Electron chama o `python` do PATH, ative a `.venv`
+antes; é o único comando do projeto que precisa de ativação (os outros
+chamam `.venv\Scripts\...` direto).
 
 ```powershell
-# Terminal 1: backend Python (headless)
-.venv\Scripts\python run.py
-```
-
-```powershell
-# Terminal 2: Electron
+.venv\Scripts\Activate.ps1
 cd electron
 npm run dev
 ```
