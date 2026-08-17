@@ -1,14 +1,13 @@
 {
-  "name": "facemesh-mouse-electron",
+  "name": "facemesh-mouse",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/main/index.js",
+  "main": "dist/modules/index.js",
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/buildRenderer.mjs && node scripts/copyStaticAssets.mjs",
     "dev": "npm run build && electron .",
     "test": "vitest run",
-    "dist": "npm run build && electron-builder --config electron-builder.yml",
-    "dist:full": "cd .. && .venv\\Scripts\\pyinstaller backend.spec --distpath dist && cd electron && npm run dist"
+    "dist": "npm run build && electron-builder --config electron-builder.yml"
   },
   "devDependencies": {
     "@types/node": "^22.10.0",
