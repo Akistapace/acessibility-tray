@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
-import { BackendProcess } from "../src/main/backendProcess";
+import { BackendProcess } from "../src/modules/backendProcess";
 
 const FIXTURE = path.join(__dirname, "fixtures", "echoBackend.mjs");
 

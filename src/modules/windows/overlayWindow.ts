@@ -20,13 +20,13 @@ export function createOverlayWindow(): BrowserWindow {
     resizable: false,
     focusable: false,
     webPreferences: {
-      preload: path.join(__dirname, "..", "..", "preload", "index.js"),
+      preload: path.join(__dirname, "..", "..", "ui", "preload", "index.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
   win.setIgnoreMouseEvents(true, { forward: true });
-  win.loadFile(path.join(__dirname, "..", "..", "renderer", "overlay", "index.html"));
+  win.loadFile(path.join(__dirname, "..", "..", "ui", "overlay", "index.html"));
   win.showInactive();
   return win;
 }

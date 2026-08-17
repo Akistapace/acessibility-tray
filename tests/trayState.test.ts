@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeTrayState } from "../src/main/trayState";
+import { computeTrayState } from "../src/modules/trayState";
 
 describe("computeTrayState", () => {
   it("paused overrides everything else", () => {

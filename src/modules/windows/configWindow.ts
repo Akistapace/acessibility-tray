@@ -25,12 +25,12 @@ export function createConfigWindow(backend: BackendProcess): BrowserWindow {
     title: "FaceMesh Mouse",
     show: false,
     webPreferences: {
-      preload: path.join(__dirname, "..", "..", "preload", "index.js"),
+      preload: path.join(__dirname, "..", "..", "ui", "preload", "index.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, "..", "..", "renderer", "config", "index.html"));
+  win.loadFile(path.join(__dirname, "..", "..", "ui", "config", "index.html"));
   win.on("show", () => backend.send({ type: "set_preview", enabled: true }));
   win.on("hide", () => backend.send({ type: "set_preview", enabled: false }));
   win.on("close", (event) => {

@@ -9,7 +9,7 @@ function hasTypeScriptFiles(dir) {
   return false;
 }
 
-if (hasTypeScriptFiles("src/renderer")) {
+if (hasTypeScriptFiles("src/ui")) {
   execFileSync(process.execPath, ["node_modules/typescript/bin/tsc", "-p", "tsconfig.renderer.json"], {
     stdio: "inherit",
   });

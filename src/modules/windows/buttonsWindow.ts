@@ -29,12 +29,12 @@ export function createButtonsWindow(
     resizable: false,
     focusable: false,
     webPreferences: {
-      preload: path.join(__dirname, "..", "..", "preload", "index.js"),
+      preload: path.join(__dirname, "..", "..", "ui", "preload", "index.js"),
       contextIsolation: true,
       nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, "..", "..", "renderer", "buttons", "index.html"));
+  win.loadFile(path.join(__dirname, "..", "..", "ui", "buttons", "index.html"));
   win.showInactive();
 
   // These two channels are re-emitted by ipcRelay.ts (Step 7 below) rather

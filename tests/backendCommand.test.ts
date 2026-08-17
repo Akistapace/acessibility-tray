@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import path from "node:path";
-import { resolveBackendCommand } from "../src/main/backendCommand";
+import { resolveBackendCommand } from "../src/modules/backendCommand";
 
 describe("resolveBackendCommand", () => {
   it("uses the bundled exe when packaged", () => {

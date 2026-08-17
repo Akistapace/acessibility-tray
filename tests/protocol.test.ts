@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { encodeMessage, parseLines } from "../src/main/protocol";
+import { encodeMessage, parseLines } from "../src/modules/protocol";
 
 describe("encodeMessage", () => {
   it("serializes to one newline-terminated JSON line", () => {

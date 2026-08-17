@@ -12,7 +12,7 @@ vi.mock("electron", () => ({
 
 describe("wireBackendRelay", () => {
   it("broadcasts backend messages to every window's webContents", async () => {
-    const { wireBackendRelay } = await import("../src/main/ipcRelay");
+    const { wireBackendRelay } = await import("../src/modules/ipcRelay");
     const backend = new EventEmitter();
     wireBackendRelay(backend as never);
 
@@ -22,7 +22,7 @@ describe("wireBackendRelay", () => {
   });
 
   it("forwards renderer commands to the backend", async () => {
-    const { wireBackendRelay } = await import("../src/main/ipcRelay");
+    const { wireBackendRelay } = await import("../src/modules/ipcRelay");
     const backend = new EventEmitter() as EventEmitter & { send: (m: unknown) => void };
     backend.send = vi.fn();
     wireBackendRelay(backend);
