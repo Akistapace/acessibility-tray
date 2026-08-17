@@ -10,8 +10,11 @@ export function createButtonsWindow(
   savedX: number | null,
   savedY: number | null
 ): BrowserWindow {
-  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workArea;
-  const taskbarReservedPx = screen.getPrimaryDisplay().bounds.height - screenH;
+  // bounds, not workArea: defaultPosition/resolvePosition subtract the
+  // taskbar themselves, so feeding them the already-shrunk workArea height
+  // would place the buttons one taskbar-height too high.
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().bounds;
+  const taskbarReservedPx = screenH - screen.getPrimaryDisplay().workArea.height;
   const { x, y } = resolvePosition(savedX, savedY, screenW, screenH, taskbarReservedPx);
 
   win = new BrowserWindow({
@@ -56,8 +59,11 @@ export function createButtonsWindow(
 }
 
 export function resetButtonsPosition(): void {
-  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().workArea;
-  const taskbarReservedPx = screen.getPrimaryDisplay().bounds.height - screenH;
+  // bounds, not workArea: defaultPosition/resolvePosition subtract the
+  // taskbar themselves, so feeding them the already-shrunk workArea height
+  // would place the buttons one taskbar-height too high.
+  const { width: screenW, height: screenH } = screen.getPrimaryDisplay().bounds;
+  const taskbarReservedPx = screenH - screen.getPrimaryDisplay().workArea.height;
   const { x, y } = defaultPosition(screenW, screenH, taskbarReservedPx);
   win?.setPosition(Math.round(x), Math.round(y));
 }
