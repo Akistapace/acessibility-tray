@@ -93,6 +93,16 @@ function readFormIntoConfig(): void {
   }
 }
 
+// This window never owns action_buttons: the floating buttons window
+// persists its own position on every drag, straight to disk. currentConfig
+// still holds whatever was on disk at page load, so sending it back would
+// silently revert any drag made since. Leaving the key out entirely lets
+// the backend's save_config merge keep the on-disk position.
+function configPayloadWithoutButtons(): Record<string, unknown> {
+  const { action_buttons: _ignored, ...rest } = currentConfig;
+  return rest;
+}
+
 function updateToggleButton(): void {
   const state = computeToggleState(lastStatus);
   statusLabel.textContent = state.statusText;
@@ -102,7 +112,7 @@ function updateToggleButton(): void {
 toggleButton.addEventListener("click", () => {
   readFormIntoConfig();
   const state = computeToggleState(lastStatus);
-  window.backend.send({ type: "update_config", config: currentConfig });
+  window.backend.send({ type: "update_config", config: configPayloadWithoutButtons() });
   window.backend.send({ type: state.nextCommand });
   if (state.nextCommand === "start" || state.nextCommand === "resume") {
     window.close();
@@ -111,7 +121,7 @@ toggleButton.addEventListener("click", () => {
 
 saveButton.addEventListener("click", () => {
   readFormIntoConfig();
-  window.backend.send({ type: "save_config", config: currentConfig });
+  window.backend.send({ type: "save_config", config: configPayloadWithoutButtons() });
 });
 
 document.getElementById("reset-position-button")?.addEventListener("click", () => {
