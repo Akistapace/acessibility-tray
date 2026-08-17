@@ -71,7 +71,13 @@ class BackendServer:
         handler = getattr(self, f"_cmd_{command.get('type')}", None)
         if handler is None:
             return
-        handler(command)
+        try:
+            handler(command)
+        except Exception as exc:  # noqa: BLE001 - one bad command must never kill the backend
+            print(
+                f"facemesh-mouse: command {command.get('type')!r} failed ({exc!r})",
+                file=sys.stderr,
+            )
 
     def _cmd_set_preview(self, command: dict) -> None:
         self.preview_enabled = bool(command.get("enabled", False))
@@ -156,10 +162,13 @@ def _frame_loop(
     seq = 0
     while not stop.is_set():
         if server.preview_enabled:
-            frame, metrics = engine.state.snapshot()
-            if frame is not None:
-                send(_encode_frame(frame, metrics, server.config, seq))
-                seq += 1
+            try:
+                frame, metrics = engine.state.snapshot()
+                if frame is not None:
+                    send(_encode_frame(frame, metrics, server.config, seq))
+                    seq += 1
+            except Exception as exc:  # noqa: BLE001 - one bad frame must never kill the push loop
+                print(f"facemesh-mouse: frame push failed ({exc!r})", file=sys.stderr)
         stop.wait(FRAME_INTERVAL_S)
 
 

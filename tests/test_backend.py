@@ -146,6 +146,17 @@ def test_unknown_command_type_is_ignored():
     server.handle_command({"type": "not_a_real_command"})  # must not raise
 
 
+def test_handle_command_catches_and_logs_a_failing_handler(capsys):
+    # A malformed command must never take the whole backend down: this
+    # payload makes config_from_dict raise AttributeError inside the real
+    # update_config handler, and handle_command has to absorb it.
+    server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
+
+    server.handle_command({"type": "update_config", "config": None})  # must not raise
+
+    assert "update_config" in capsys.readouterr().err
+
+
 def test_status_snapshot_reflects_engine_flags():
     engine = Engine(config_mod.default_config())
     engine.paused.set()
