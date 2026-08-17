@@ -11,10 +11,13 @@ describe("resolveBackendCommand", () => {
     });
   });
 
-  it("uses the dev python module otherwise", () => {
+  it("spawns the repo-root run.py otherwise", () => {
+    // Both this test file (electron/tests) and the module under test
+    // (electron/src/main, electron/dist/main once compiled) sit exactly
+    // that many levels below the repo root.
     expect(resolveBackendCommand(false, "")).toEqual({
       command: "python",
-      args: ["-m", "facemesh_mouse.backend"],
+      args: [path.join(__dirname, "..", "..", "run.py")],
     });
   });
 });
