@@ -374,6 +374,16 @@ if (existsSync("assets")) {
 }
 ```
 
+- [ ] **Step 3a: Install now that apps/desktop is a real workspace member**
+
+`apps/desktop/package.json` (Step 1) declares `electron`, `vitest`, `typescript`, `electron-builder`, and `@facemesh-mouse/shared` as dependencies, but nothing has linked them into `apps/desktop/node_modules` yet — Task 2 only ran `pnpm install` when `packages/shared` was the sole real member.
+
+```bash
+pnpm install
+```
+
+Run this from the repo root (same place Task 2 ran it). Verify: `ls apps/desktop/node_modules/.bin/vitest` and `ls apps/desktop/node_modules/@facemesh-mouse/shared` both resolve (the latter is a symlink into `packages/shared`).
+
 - [ ] **Step 4: Move services (pure relocations first)**
 
 ```bash
@@ -737,7 +747,32 @@ export function resetButtonsPosition(): void {
 }
 ```
 
-- [ ] **Step 13: Move position.test.ts's buttonsPosition half (its clickOrDrag half moves in Task 4)**
+- [ ] **Step 13a: Move pointTracker.ts — physically under src/modules/ today, but belongs in renderer/tracking/**
+
+`src/modules/pointTracker.ts` sits under `src/modules/` today, but per the original `2026-08-17-node-port-design.md` spec's component mapping, its intended home was always `src/ui/tracking/pointTracker.ts` alongside `faceMetrics.ts` (Task 6 of the 19-task plan ported it but never relocated it to match). It has no Electron/Node imports — pure math, same shape as `faceMetrics.ts`. Move it directly to its final renderer location now rather than leaving it in `src/modules/` only to re-move it in Task 4:
+
+```bash
+mkdir -p apps/desktop/src/renderer/tracking
+git mv src/modules/pointTracker.ts apps/desktop/src/renderer/tracking/pointTracker.ts
+git mv tests/pointTracker.test.ts apps/desktop/tests/pointTracker.test.ts
+```
+
+Update the test's import:
+```ts
+import {
+  FACE_ASPECT_RATIO,
+  MIN_ADD_DISTANCE_FRACTION,
+  PRUNING_CELL_FRACTION,
+  meanMovement,
+  prunePoints,
+  shouldAddPoint,
+  type Point,
+} from "../src/renderer/tracking/pointTracker";
+```
+
+Task 4 does not need to touch this file again — by the time Task 4 runs, `apps/desktop/src/renderer/tracking/` already contains it, and Task 4's `mkdir -p` for that same directory in its Step 3 is a no-op.
+
+- [ ] **Step 13b: Move position.test.ts's buttonsPosition half (its clickOrDrag half moves in Task 4)**
 
 `tests/position.test.ts` imports from both `src/ui/buttons/clickOrDrag` (renderer, moves in Task 4) and `src/modules/windows/buttonsPosition` (main, moving now). Leave this file at the repo-root `tests/` for now and finish it in Task 4 once both halves have a home — moving it now would require re-touching it again in Task 4 for the other half. Skip this step's file move; note it for Task 4.
 
