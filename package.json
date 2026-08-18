@@ -1,0 +1,11 @@
+{
+  "name": "facemesh-mouse",
+  "private": true,
+  "scripts": {
+    "dev": "npm --prefix electron run dev",
+    "build": "npm --prefix electron run build",
+    "test": "npm --prefix electron run test",
+    "dist": "npm --prefix electron run dist",
+    "dist:full": "npm --prefix electron run dist:full"
+  }
+}

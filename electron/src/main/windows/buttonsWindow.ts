@@ -1,7 +1,8 @@
-import { BrowserWindow, ipcMain, screen } from "electron";
+import { BrowserWindow, screen } from "electron";
 import path from "node:path";
 import { BackendProcess } from "../backendProcess";
-import { defaultPosition, resolvePosition, WIDTH, SIZE } from "./buttonsPosition";
+import { mainRelay } from "../ipcRelay";
+import { defaultPosition, resolvePosition, WIDTH, WINDOW_HEIGHT } from "./buttonsPosition";
 
 let win: BrowserWindow | null = null;
 
@@ -21,7 +22,7 @@ export function createButtonsWindow(
     x: Math.round(x),
     y: Math.round(y),
     width: WIDTH,
-    height: SIZE,
+    height: WINDOW_HEIGHT,
     frame: false,
     transparent: true,
     alwaysOnTop: true,
@@ -37,16 +38,20 @@ export function createButtonsWindow(
   win.loadFile(path.join(__dirname, "..", "..", "renderer", "buttons", "index.html"));
   win.showInactive();
 
-  // These two channels are re-emitted by ipcRelay.ts (Step 7 below) rather
+  // These two channels are re-emitted by ipcRelay.ts's mainRelay rather
   // than delivered on the shared "backend:send" channel directly -- a raw
   // listener there would also see every command meant for Python (start,
   // update_config, ...) and would need to filter them back out itself.
-  ipcMain.on("buttons:drag-move", (_event, message: { dx: number; dy: number }) => {
+  mainRelay.on("buttons:drag-move", (message: { dx: number; dy: number }) => {
     if (!win) return;
+    // Electron's native setPosition throws (crashing the whole main
+    // process, uncaught) on a non-finite value -- a malformed or missing
+    // dx/dy must be dropped here rather than handed straight through.
+    if (!Number.isFinite(message?.dx) || !Number.isFinite(message?.dy)) return;
     const [curX, curY] = win.getPosition();
     win.setPosition(curX + message.dx, curY + message.dy);
   });
-  ipcMain.on("buttons:drag-end", () => {
+  mainRelay.on("buttons:drag-end", () => {
     if (!win) return;
     const [curX, curY] = win.getPosition();
     backend.send({

@@ -1,14 +1,5 @@
 import { pulseRadius, RING_COLOR, WARNING_COLOR, START_RADIUS, END_RADIUS, DURATION_MS } from "./pulse.js";
 
-declare global {
-  interface Window {
-    backend: {
-      send: (message: Record<string, unknown>) => void;
-      on: (channel: string, callback: (message: unknown) => void) => () => void;
-    };
-  }
-}
-
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;

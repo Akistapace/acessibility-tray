@@ -1,15 +1,6 @@
 import { computeToggleState } from "./toggleState.js";
 import { GESTURE_LABELS, GESTURE_NAMES, ACTION_LABELS } from "./labels.js";
 
-declare global {
-  interface Window {
-    backend: {
-      send: (message: Record<string, unknown>) => void;
-      on: (channel: string, callback: (message: unknown) => void) => () => void;
-    };
-  }
-}
-
 interface AppConfigJson {
   calibration: Record<string, number | boolean>;
   gestures: Record<string, { action: string; threshold: number; cooldown_ms: number; hold_ms: number }>;
@@ -26,6 +17,8 @@ let currentConfig: AppConfigJson = {
     click_logging_enabled: true,
     dwell_click_enabled: false,
     dwell_time_s: 1,
+    keyboard_button_enabled: true,
+    voice_button_enabled: true,
   },
   gestures: {},
   action_buttons: { x: null, y: null },
@@ -36,7 +29,6 @@ let lastStatus = { control_enabled: false, paused: false, no_face: false, yielde
 const preview = document.getElementById("preview") as HTMLImageElement;
 const statusLabel = document.getElementById("status-label") as HTMLDivElement;
 const toggleButton = document.getElementById("toggle-button") as HTMLButtonElement;
-const saveButton = document.getElementById("save-button") as HTMLButtonElement;
 
 function renderGestureRows(): void {
   const container = document.getElementById("gesture-rows") as HTMLDivElement;
@@ -61,6 +53,16 @@ function renderGestureRows(): void {
     (row.querySelector(`#action-${name}`) as HTMLSelectElement).value = gesture.action;
     (row.querySelector(`#hold-${name}`) as HTMLInputElement).value = String(gesture.hold_ms);
     (row.querySelector(`#cooldown-${name}`) as HTMLInputElement).value = String(gesture.cooldown_ms);
+    // Lets the user see exactly which part of their face drives a gesture
+    // by highlighting that zone on the camera preview while they hover its
+    // row -- the backend does the actual drawing, since it's the one that
+    // has the live landmark positions.
+    row.addEventListener("pointerenter", () => {
+      window.backend.send({ type: "highlight_gesture", gesture: name });
+    });
+    row.addEventListener("pointerleave", () => {
+      window.backend.send({ type: "highlight_gesture", gesture: null });
+    });
   }
 }
 
@@ -106,7 +108,13 @@ function configPayloadWithoutButtons(): Record<string, unknown> {
 function updateToggleButton(): void {
   const state = computeToggleState(lastStatus);
   statusLabel.textContent = state.statusText;
+  statusLabel.dataset.state = !lastStatus.control_enabled
+    ? "stopped"
+    : lastStatus.paused
+      ? "paused"
+      : "running";
   toggleButton.textContent = state.buttonText;
+  toggleButton.dataset.state = state.nextCommand;
 }
 
 toggleButton.addEventListener("click", () => {
@@ -119,9 +127,46 @@ toggleButton.addEventListener("click", () => {
   }
 });
 
-saveButton.addEventListener("click", () => {
+type SaveState = "idle" | "saving" | "saved";
+
+const SAVE_CONFIRMATION_MS = 1400;
+// Safety net: if the backend never echoes the config back (not running,
+// or the message got lost), the button must not stay stuck on "Salvando…"
+// forever.
+const SAVE_TIMEOUT_MS = 4000;
+
+let saveState: SaveState = "idle";
+let saveConfirmTimer: ReturnType<typeof setTimeout> | null = null;
+let saveTimeoutTimer: ReturnType<typeof setTimeout> | null = null;
+
+function saveButtonLabel(state: SaveState): string {
+  if (state === "saving") return "Salvando…";
+  if (state === "saved") return "Salvo";
+  return "Salvar configurações";
+}
+
+// All save-trigger buttons (one per tab) always mirror one shared state --
+// a save started from any tab is one save of the whole config.
+function setSaveState(state: SaveState): void {
+  saveState = state;
+  document.querySelectorAll<HTMLButtonElement>(".save-trigger").forEach((button) => {
+    button.dataset.state = state;
+    button.disabled = state === "saving";
+    button.textContent = saveButtonLabel(state);
+  });
+}
+
+function saveConfig(): void {
   readFormIntoConfig();
   window.backend.send({ type: "save_config", config: configPayloadWithoutButtons() });
+  if (saveConfirmTimer) clearTimeout(saveConfirmTimer);
+  if (saveTimeoutTimer) clearTimeout(saveTimeoutTimer);
+  setSaveState("saving");
+  saveTimeoutTimer = setTimeout(() => setSaveState("idle"), SAVE_TIMEOUT_MS);
+}
+
+document.querySelectorAll(".save-trigger").forEach((button) => {
+  button.addEventListener("click", saveConfig);
 });
 
 document.getElementById("reset-position-button")?.addEventListener("click", () => {
@@ -134,6 +179,9 @@ document.querySelectorAll(".tab-button").forEach((button) => {
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     button.classList.add("active");
     document.getElementById(`tab-${(button as HTMLElement).dataset.tab}`)?.classList.add("active");
+    if ((button as HTMLElement).dataset.tab !== "gestos") {
+      window.backend.send({ type: "highlight_gesture", gesture: null });
+    }
   });
 });
 
@@ -154,6 +202,11 @@ window.backend.on("frame", (message) => {
 window.backend.on("config", (message) => {
   currentConfig = (message as { config: AppConfigJson }).config;
   applyConfigToForm();
+  if (saveState === "saving") {
+    if (saveTimeoutTimer) clearTimeout(saveTimeoutTimer);
+    setSaveState("saved");
+    saveConfirmTimer = setTimeout(() => setSaveState("idle"), SAVE_CONFIRMATION_MS);
+  }
 });
 
 applyConfigToForm();

@@ -91,6 +91,8 @@ class CalibrationConfig:
     click_logging_enabled: bool = True  # record fired actions to clicks.log
     dwell_click_enabled: bool = False  # click automatically when the cursor holds still
     dwell_time_s: float = 1.0  # how long it must hold still before the click fires
+    keyboard_button_enabled: bool = True  # show the floating virtual-keyboard button
+    voice_button_enabled: bool = True  # show the floating voice-typing button
 
 
 # Accepted range per tuning field, matching the GUI sliders. Values are
@@ -207,6 +209,16 @@ def config_from_dict(raw: dict) -> AppConfig:
     )
     if not isinstance(dwell_click_enabled, bool):
         dwell_click_enabled = default.calibration.dwell_click_enabled
+    keyboard_button_enabled = raw_cal.get(
+        "keyboard_button_enabled", default.calibration.keyboard_button_enabled
+    )
+    if not isinstance(keyboard_button_enabled, bool):
+        keyboard_button_enabled = default.calibration.keyboard_button_enabled
+    voice_button_enabled = raw_cal.get(
+        "voice_button_enabled", default.calibration.voice_button_enabled
+    )
+    if not isinstance(voice_button_enabled, bool):
+        voice_button_enabled = default.calibration.voice_button_enabled
     calibration = CalibrationConfig(
         sensitivity_x=_clamped(raw_cal, "sensitivity_x", default.calibration.sensitivity_x),
         sensitivity_y=_clamped(raw_cal, "sensitivity_y", default.calibration.sensitivity_y),
@@ -220,6 +232,8 @@ def config_from_dict(raw: dict) -> AppConfig:
         click_logging_enabled=click_logging_enabled,
         dwell_click_enabled=dwell_click_enabled,
         dwell_time_s=_clamped(raw_cal, "dwell_time_s", default.calibration.dwell_time_s),
+        keyboard_button_enabled=keyboard_button_enabled,
+        voice_button_enabled=voice_button_enabled,
     )
 
     raw_gestures = dict(raw.get("gestures", {}))

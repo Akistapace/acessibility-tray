@@ -1,0 +1,59 @@
+/* Explicit size matters here: body has no non-absolute content, so
+   without it the box collapses to nothing and body:hover below would
+   only ever trigger over the circles themselves (real rendered boxes),
+   never over the padding around them -- exactly the "container"
+   hovering this handle is meant to react to. */
+html, body { margin: 0; width: 100vw; height: 100vh; background: transparent; overflow: hidden; user-select: none; }
+
+.circle {
+  position: absolute;
+  top: 24px;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+  cursor: pointer;
+}
+#keyboard { left: 12px; background: #4da3ff; }
+#mic { left: 76px; background: #ff6b6b; }
+
+/* Drag handle: a small grip square, shown only while the cursor is
+   anywhere over this window (there's nothing else in it besides the two
+   circles, so hovering the body IS hovering "the group"). Kept separate
+   from the circles so grabbing to drag never competes with clicking one
+   to open the keyboard/mic -- the circles are plain clicks now, with no
+   press-and-hold ambiguity. */
+#drag-handle {
+  position: absolute;
+  top: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 32px;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  place-items: center;
+  cursor: grab;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+#drag-handle span {
+  width: 3px;
+  height: 3px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.85);
+}
+#drag-handle:active { cursor: grabbing; }
+body:hover #drag-handle {
+  opacity: 1;
+  pointer-events: auto;
+}

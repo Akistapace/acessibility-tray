@@ -78,6 +78,28 @@ def test_save_config_command_writes_to_disk(tmp_path):
     assert config_mod.load_config(path).calibration.sensitivity_x == 0.07
 
 
+def test_save_config_command_broadcasts_the_saved_config(tmp_path):
+    # The buttons window has no other way to learn a live config change
+    # (e.g. the keyboard-button toggle) short of an app restart -- it
+    # only ever asks for config once, on load.
+    path = tmp_path / "config.json"
+    sent = []
+    engine = Engine(config_mod.default_config())
+    server = backend.BackendServer(
+        engine, config_mod.default_config(), config_path=str(path), send=sent.append
+    )
+
+    server.handle_command({
+        "type": "save_config",
+        "config": config_mod.config_to_dict(_config_with_sensitivity(0.07)),
+    })
+
+    assert sent == [{
+        "type": "config",
+        "config": config_mod.config_to_dict(config_mod.load_config(path)),
+    }]
+
+
 def test_save_config_command_merges_partial_payload_onto_disk(tmp_path):
     path = tmp_path / "config.json"
     config_mod.save_config(path, _config_with_sensitivity(0.09))
@@ -139,6 +161,38 @@ def test_get_config_command_sends_the_current_config(monkeypatch):
     server.handle_command({"type": "get_config"})
 
     assert sent == [{"type": "config", "config": config_mod.config_to_dict(config)}]
+
+
+def test_highlight_gesture_command_sets_the_highlighted_gesture():
+    server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
+
+    server.handle_command({"type": "highlight_gesture", "gesture": "blink_a"})
+    assert server.highlighted_gesture == "blink_a"
+
+    server.handle_command({"type": "highlight_gesture", "gesture": None})
+    assert server.highlighted_gesture is None
+
+
+def test_highlight_gesture_command_rejects_an_unknown_gesture_name():
+    server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
+
+    server.handle_command({"type": "highlight_gesture", "gesture": "not_a_real_gesture"})
+
+    assert server.highlighted_gesture is None
+
+
+def test_encode_frame_forwards_the_highlighted_gesture_to_the_preview_renderer(monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        backend.preview_mod,
+        "render_preview_jpeg",
+        lambda frame, metrics, highlighted_gesture=None: seen.append(highlighted_gesture) or b"",
+    )
+    frame = np.zeros((240, 320, 3), dtype=np.uint8)
+
+    backend._encode_frame(frame, None, config_mod.default_config(), seq=0, highlighted_gesture="mouth_open")
+
+    assert seen == ["mouth_open"]
 
 
 def test_unknown_command_type_is_ignored():

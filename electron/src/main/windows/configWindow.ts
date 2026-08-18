@@ -1,9 +1,11 @@
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow } from "electron";
 import path from "node:path";
 import { BackendProcess } from "../backendProcess";
+import { mainRelay } from "../ipcRelay";
 import { resetButtonsPosition } from "./buttonsWindow";
 
 let win: BrowserWindow | null = null;
+let backendRef: BackendProcess | null = null;
 
 // The close handler below cancels every close so the X button only hides
 // the window (the app lives in the tray). That would also cancel the
@@ -16,8 +18,8 @@ app.on("before-quit", () => {
   isQuitting = true;
 });
 
-export function createConfigWindow(backend: BackendProcess): BrowserWindow {
-  win = new BrowserWindow({
+function buildWindow(backend: BackendProcess): BrowserWindow {
+  const window = new BrowserWindow({
     width: 1060,
     height: 680,
     minWidth: 1000,
@@ -30,22 +32,34 @@ export function createConfigWindow(backend: BackendProcess): BrowserWindow {
       nodeIntegration: false,
     },
   });
-  win.loadFile(path.join(__dirname, "..", "..", "renderer", "config", "index.html"));
-  win.on("show", () => backend.send({ type: "set_preview", enabled: true }));
-  win.on("hide", () => backend.send({ type: "set_preview", enabled: false }));
-  win.on("close", (event) => {
+  window.loadFile(path.join(__dirname, "..", "..", "renderer", "config", "index.html"));
+  window.on("show", () => backend.send({ type: "set_preview", enabled: true }));
+  window.on("hide", () => backend.send({ type: "set_preview", enabled: false }));
+  window.on("close", (event) => {
     if (isQuitting) return;
     event.preventDefault();
-    win?.hide();
+    window.hide();
   });
+  return window;
+}
+
+export function createConfigWindow(backend: BackendProcess): BrowserWindow {
+  backendRef = backend;
+  win = buildWindow(backend);
   return win;
 }
 
 export function showConfigWindow(): void {
+  // Electron throws "Object has been destroyed" on any method call once a
+  // BrowserWindow is gone -- rebuilding it here instead of crashing the
+  // whole main process (see configWindow.test.ts for the reproduction).
+  if ((!win || win.isDestroyed()) && backendRef) {
+    win = buildWindow(backendRef);
+  }
   win?.show();
   win?.focus();
 }
 
-ipcMain.on("config:reset-position", () => {
+mainRelay.on("config:reset-position", () => {
   resetButtonsPosition();
 });

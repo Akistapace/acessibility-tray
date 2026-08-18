@@ -1,4 +1,4 @@
-import { app, dialog, globalShortcut } from "electron";
+import { app, dialog, globalShortcut, Menu } from "electron";
 import fs from "node:fs";
 import { BackendProcess } from "./backendProcess";
 import { resolveBackendCommand } from "./backendCommand";
@@ -16,6 +16,12 @@ function readSavedButtonsPosition(): { x: number | null; y: number | null } {
     return { x: null, y: null };
   }
 }
+
+// This app has no menu-driven functionality (no File/Edit/View/Window/Help
+// actions) -- the default menu Electron attaches to every BrowserWindow is
+// pure clutter here, and worse, its Alt-key mnemonics compete with this
+// app's own global shortcuts.
+Menu.setApplicationMenu(null);
 
 export let backend: BackendProcess;
 let quitting = false;

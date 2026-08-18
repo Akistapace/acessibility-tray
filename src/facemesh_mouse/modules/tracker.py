@@ -47,6 +47,25 @@ EYEBROW_B = 334
 EYELID_TOP_A = 159
 EYELID_TOP_B = 386
 
+MOUTH_LANDMARKS = [MOUTH_TOP_INNER, MOUTH_BOTTOM_INNER, MOUTH_CORNER_LEFT, MOUTH_CORNER_RIGHT]
+
+# Which landmarks to draw a highlight zone around for each gesture, used by
+# preview.py when the config window's Gestos tab reports a hovered row. The
+# mouth gestures all share the same landmark set: mouth_left/mouth_right are
+# read off the same mouth-center-vs-face-axis measurement as mouth_open (see
+# gestures.py's _condition), not a distinct region of the mouth.
+GESTURE_LANDMARK_GROUPS: dict[str, list[int]] = {
+    "blink_a": EYE_A,
+    "blink_b": EYE_B,
+    "blink_both": EYE_A + EYE_B,
+    "eyebrow_a": [EYEBROW_A, EYELID_TOP_A, *EYE_A],
+    "eyebrow_b": [EYEBROW_B, EYELID_TOP_B, *EYE_B],
+    "eyebrow_both": [EYEBROW_A, EYELID_TOP_A, EYEBROW_B, EYELID_TOP_B, *EYE_A, *EYE_B],
+    "mouth_open": MOUTH_LANDMARKS,
+    "mouth_left": MOUTH_LANDMARKS,
+    "mouth_right": MOUTH_LANDMARKS,
+}
+
 
 @dataclass
 class FaceMetrics:

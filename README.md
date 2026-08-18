@@ -65,7 +65,7 @@ O Electron abre a janela de configuração automaticamente na primeira execuçã
 
 Na primeira execução abre a janela de configuração: à esquerda ficam a
 prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
-"Salvar configurações"; à direita, três abas.
+"Salvar configurações"; à direita, quatro abas.
 
 - **Movimento**: não há mais gravação de extremos — o cursor se move de
   forma relativa à cabeça, como um mouse de verdade. Sliders ajustam esse
@@ -79,13 +79,20 @@ prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
   de retomar o controle pela cabeça. Um interruptor liga o clique por
   permanência (dwell click): com um slider ao lado ajustando o tempo, o
   clique esquerdo dispara sozinho quando o cursor fica parado sobre um
-  elemento, sem precisar de gesto — desligado por padrão. Outro interruptor
-  liga ou desliga o registro de cliques em `clicks.log`.
+  elemento, sem precisar de gesto — desligado por padrão.
 - **Gestos**: nove gestos, cada um com uma barra que enche conforme você se
   aproxima de dispará-lo. Escolha a
   ação de mouse de cada gesto e, no slider ao lado, por quanto tempo a
   expressão precisa ser segurada pra valer (padrão 400ms — bem acima de uma
-  piscada natural, que dura ~100-150ms).
+  piscada natural, que dura ~100-150ms). Passar o mouse sobre uma linha
+  destaca, na prévia da câmera, a região do rosto que dispara aquele gesto.
+- **Extras**: liga ou desliga recursos opcionais. Um interruptor esconde o
+  botão flutuante de teclado virtual — em alguns PCs o teclado touch do
+  Windows não está disponível (o COM `ITipInvocation` não é registrado --
+  erro `REGDB_E_CLASSNOTREG` no log do backend) e o botão nunca abre nada;
+  desative-o aqui pra tirá-lo da tela. Outro interruptor esconde do mesmo
+  jeito o botão de digitação por voz. Um terceiro liga ou desliga o
+  registro de cliques em `clicks.log`.
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
 Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar

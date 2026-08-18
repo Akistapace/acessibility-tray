@@ -39,8 +39,10 @@ def _status_snapshot(engine: Engine) -> dict:
     }
 
 
-def _encode_frame(frame, metrics, config: AppConfig, seq: int) -> dict:
-    jpeg_bytes = preview_mod.render_preview_jpeg(frame, metrics)
+def _encode_frame(
+    frame, metrics, config: AppConfig, seq: int, highlighted_gesture: str | None = None
+) -> dict:
+    jpeg_bytes = preview_mod.render_preview_jpeg(frame, metrics, highlighted_gesture)
     jpeg_b64 = base64.b64encode(jpeg_bytes).decode("ascii")
     gesture_progress = {
         name: (
@@ -66,6 +68,7 @@ class BackendServer:
         self._config_path = config_path
         self._send = send
         self.preview_enabled = False
+        self.highlighted_gesture: str | None = None
 
     def handle_command(self, command: dict) -> None:
         handler = getattr(self, f"_cmd_{command.get('type')}", None)
@@ -81,6 +84,10 @@ class BackendServer:
 
     def _cmd_set_preview(self, command: dict) -> None:
         self.preview_enabled = bool(command.get("enabled", False))
+
+    def _cmd_highlight_gesture(self, command: dict) -> None:
+        gesture = command.get("gesture")
+        self.highlighted_gesture = gesture if gesture in config_mod.GESTURE_NAMES else None
 
     def _cmd_start(self, _command: dict) -> None:
         self._engine.control_enabled.set()
@@ -108,7 +115,13 @@ class BackendServer:
             merged["calibration"] = {**on_disk_dict["calibration"], **payload["calibration"]}
         if "action_buttons" in payload:
             merged["action_buttons"] = {**on_disk_dict["action_buttons"], **payload["action_buttons"]}
-        config_mod.save_config(self._config_path, config_mod.config_from_dict(merged))
+        saved = config_mod.config_from_dict(merged)
+        config_mod.save_config(self._config_path, saved)
+        # Windows other than the one that saved (e.g. the buttons window,
+        # which only ever asks for config once on load) have no other way
+        # to learn a change like the keyboard-button toggle short of an
+        # app restart.
+        self._send(proto.config_message(config_mod.config_to_dict(saved)))
 
     def _cmd_open_keyboard(self, command: dict) -> None:
         x, y = command.get("x", 0), command.get("y", 0)
@@ -165,7 +178,7 @@ def _frame_loop(
             try:
                 frame, metrics = engine.state.snapshot()
                 if frame is not None:
-                    send(_encode_frame(frame, metrics, server.config, seq))
+                    send(_encode_frame(frame, metrics, server.config, seq, server.highlighted_gesture))
                     seq += 1
             except Exception as exc:  # noqa: BLE001 - one bad frame must never kill the push loop
                 print(f"facemesh-mouse: frame push failed ({exc!r})", file=sys.stderr)

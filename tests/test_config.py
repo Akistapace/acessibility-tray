@@ -253,6 +253,46 @@ def test_non_bool_dwell_click_enabled_value_falls_back_to_the_default(tmp_path):
     assert config_mod.load_config(path).calibration.dwell_click_enabled is False
 
 
+def test_default_config_has_the_keyboard_button_enabled():
+    assert config_mod.default_config().calibration.keyboard_button_enabled is True
+
+
+def test_keyboard_button_enabled_round_trips(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.keyboard_button_enabled = False
+    config_mod.save_config(path, original)
+
+    assert config_mod.load_config(path).calibration.keyboard_button_enabled is False
+
+
+def test_non_bool_keyboard_button_enabled_value_falls_back_to_the_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"keyboard_button_enabled": "nope"}}))
+
+    assert config_mod.load_config(path).calibration.keyboard_button_enabled is True
+
+
+def test_default_config_has_the_voice_button_enabled():
+    assert config_mod.default_config().calibration.voice_button_enabled is True
+
+
+def test_voice_button_enabled_round_trips(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.calibration.voice_button_enabled = False
+    config_mod.save_config(path, original)
+
+    assert config_mod.load_config(path).calibration.voice_button_enabled is False
+
+
+def test_non_bool_voice_button_enabled_value_falls_back_to_the_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"calibration": {"voice_button_enabled": "nope"}}))
+
+    assert config_mod.load_config(path).calibration.voice_button_enabled is True
+
+
 def test_default_config_has_no_saved_action_buttons_position():
     buttons = config_mod.default_config().action_buttons
     assert buttons.x is None
