@@ -21,6 +21,7 @@ from .modules.engine import Engine
 from .modules import ipc_protocol as proto
 from .modules.gestures import trigger_progress
 from .modules import preview as preview_mod
+from . import cursor_theme
 from . import virtual_keyboard
 from . import voice_typing
 
@@ -99,6 +100,16 @@ class BackendServer:
         self._engine.update_config(self.config)
         self._sync_click_logging(self.config)
 
+    def _cmd_set_cursor_theme(self, command: dict) -> None:
+        self.config.cursor = config_mod.cursor_from_dict({
+            "size_px": command.get("size_px"),
+            "mode": command.get("mode"),
+            "custom_color": command.get("custom_color"),
+        })
+        cursor_theme.apply_cursor(
+            self.config.cursor.size_px, self.config.cursor.mode, self.config.cursor.custom_color
+        )
+
     def _cmd_save_config(self, command: dict) -> None:
         on_disk = config_mod.load_config(self._config_path)
         on_disk_dict = config_mod.config_to_dict(on_disk)
@@ -108,6 +119,8 @@ class BackendServer:
             merged["calibration"] = {**on_disk_dict["calibration"], **payload["calibration"]}
         if "action_buttons" in payload:
             merged["action_buttons"] = {**on_disk_dict["action_buttons"], **payload["action_buttons"]}
+        if "cursor" in payload:
+            merged["cursor"] = {**on_disk_dict["cursor"], **payload["cursor"]}
         config_mod.save_config(self._config_path, config_mod.config_from_dict(merged))
 
     def _cmd_open_keyboard(self, command: dict) -> None:
@@ -177,6 +190,11 @@ def main() -> None:
     _redirect_prints_to_stderr()
     config = config_mod.load_config(CONFIG_PATH)
 
+    if (config.cursor.size_px, config.cursor.mode) != (32, "default"):
+        cursor_theme.apply_cursor(
+            config.cursor.size_px, config.cursor.mode, config.cursor.custom_color
+        )
+
     def send(message: dict) -> None:
         proto.write_message(real_stdout, message)
 
@@ -204,6 +222,7 @@ def main() -> None:
     finally:
         stop.set()
         engine.stop()
+        cursor_theme.restore_cursor()
 
 
 if __name__ == "__main__":

@@ -182,3 +182,57 @@ def test_encode_frame_produces_a_frame_message_with_progress_for_every_gesture()
     # no_face status pushed alongside it, rather than freezing at a stale
     # value from the last frame that had a face.
     assert all(v == 0.0 for v in message["gesture_progress"].values())
+
+
+def test_set_cursor_theme_command_updates_config_and_calls_apply_cursor(monkeypatch):
+    calls = []
+    monkeypatch.setattr(
+        backend.cursor_theme, "apply_cursor", lambda *a, **kw: calls.append((a, kw))
+    )
+    server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
+
+    server.handle_command({
+        "type": "set_cursor_theme",
+        "size_px": 64,
+        "mode": "mista",
+        "custom_color": "#112233",
+    })
+
+    assert server.config.cursor.size_px == 64
+    assert server.config.cursor.mode == "mista"
+    assert server.config.cursor.custom_color == "#112233"
+    assert calls == [((64, "mista", "#112233"), {})]
+
+
+def test_set_cursor_theme_command_clamps_and_falls_back_like_config_loading(monkeypatch):
+    monkeypatch.setattr(backend.cursor_theme, "apply_cursor", lambda *a, **kw: None)
+    server = backend.BackendServer(Engine(config_mod.default_config()), config_mod.default_config())
+
+    server.handle_command({
+        "type": "set_cursor_theme",
+        "size_px": 999,
+        "mode": "not_a_real_mode",
+        "custom_color": "#000000",
+    })
+
+    assert server.config.cursor.size_px == config_mod.CURSOR_SIZE_RANGE[1]
+    assert server.config.cursor.mode == "default"
+
+
+def test_save_config_command_merges_partial_cursor_payload_onto_disk(tmp_path):
+    path = tmp_path / "config.json"
+    saved = config_mod.default_config()
+    saved.cursor.mode = "black"
+    config_mod.save_config(path, saved)
+    server = backend.BackendServer(
+        Engine(config_mod.default_config()), config_mod.default_config(), config_path=str(path)
+    )
+
+    server.handle_command({
+        "type": "save_config",
+        "config": {"cursor": {"size_px": 80}},
+    })
+
+    reloaded = config_mod.load_config(path)
+    assert reloaded.cursor.mode == "black"  # untouched field survives the merge
+    assert reloaded.cursor.size_px == 80
