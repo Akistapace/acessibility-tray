@@ -208,6 +208,7 @@ def main() -> None:
 
     if not engine.open_camera():
         send(proto.error_message("camera"))
+        cursor_theme.restore_cursor()
         return
 
     engine.start(_primary_screen_size())

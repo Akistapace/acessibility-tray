@@ -1,3 +1,5 @@
+import sys
+
 import numpy as np
 
 from facemesh_mouse import backend
@@ -236,3 +238,49 @@ def test_save_config_command_merges_partial_cursor_payload_onto_disk(tmp_path):
     reloaded = config_mod.load_config(path)
     assert reloaded.cursor.mode == "black"  # untouched field survives the merge
     assert reloaded.cursor.size_px == 80
+
+
+def test_main_restores_cursor_when_camera_fails_to_open_after_a_startup_theme_apply(monkeypatch):
+    # main() itself has no other unit tests in this suite -- it wires a real
+    # camera, real stdin, and background threads, none of which the rest of
+    # this file touches. This test only exercises the one path relevant to
+    # the regression: a saved non-default cursor theme gets applied at
+    # startup, camera open then fails, and the process must still restore
+    # the cursor before exiting rather than leaving it permanently altered
+    # (see cursor_theme.restore_cursor's shutdown-path call in this same
+    # function for the normal-exit case this mirrors).
+    class _FakeEngine:
+        def __init__(self, config, on_action=None):
+            self.config = config
+            self.on_action = on_action
+
+        def open_camera(self):
+            return False
+
+    themed = config_mod.default_config()
+    themed.cursor.mode = "black"
+    themed.cursor.size_px = 64
+    themed.calibration.click_logging_enabled = False  # avoid a real clicks.log write
+
+    apply_calls = []
+    restore_calls = []
+    monkeypatch.setattr(backend.config_mod, "load_config", lambda path: themed)
+    monkeypatch.setattr(
+        backend.cursor_theme, "apply_cursor", lambda *a, **kw: apply_calls.append((a, kw))
+    )
+    monkeypatch.setattr(
+        backend.cursor_theme, "restore_cursor", lambda *a, **kw: restore_calls.append((a, kw))
+    )
+    monkeypatch.setattr(backend, "Engine", _FakeEngine)
+
+    # main() reassigns sys.stdout internally and never puts it back --
+    # restore it ourselves so this test doesn't corrupt capture for tests
+    # that run after it in the same process.
+    original_stdout = sys.stdout
+    try:
+        backend.main()
+    finally:
+        sys.stdout = original_stdout
+
+    assert apply_calls == [((64, "black", themed.cursor.custom_color), {})]
+    assert restore_calls == [((), {})]
