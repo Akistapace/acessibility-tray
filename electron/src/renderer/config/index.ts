@@ -14,6 +14,7 @@ interface AppConfigJson {
   calibration: Record<string, number | boolean>;
   gestures: Record<string, { action: string; threshold: number; cooldown_ms: number; hold_ms: number }>;
   action_buttons: { x: number | null; y: number | null };
+  cursor: { size_px: number; mode: string; custom_color: string };
 }
 
 let currentConfig: AppConfigJson = {
@@ -29,6 +30,7 @@ let currentConfig: AppConfigJson = {
   },
   gestures: {},
   action_buttons: { x: null, y: null },
+  cursor: { size_px: 32, mode: "default", custom_color: "#000000" },
 };
 
 let lastStatus = { control_enabled: false, paused: false, no_face: false, yielded: false };
@@ -71,6 +73,11 @@ function applyConfigToForm(): void {
     if (el.type === "checkbox") el.checked = Boolean(value);
     else el.value = String(value);
   }
+  (document.getElementById("cursor_size_px") as HTMLInputElement).value =
+    String(currentConfig.cursor.size_px);
+  (document.getElementById("cursor_mode") as HTMLSelectElement).value = currentConfig.cursor.mode;
+  (document.getElementById("cursor_custom_color") as HTMLInputElement).value =
+    currentConfig.cursor.custom_color;
   renderGestureRows();
 }
 
@@ -80,6 +87,11 @@ function readFormIntoConfig(): void {
     if (!el) continue;
     currentConfig.calibration[key] = el.type === "checkbox" ? el.checked : Number(el.value);
   }
+  currentConfig.cursor = {
+    size_px: Number((document.getElementById("cursor_size_px") as HTMLInputElement).value),
+    mode: (document.getElementById("cursor_mode") as HTMLSelectElement).value,
+    custom_color: (document.getElementById("cursor_custom_color") as HTMLInputElement).value,
+  };
   for (const name of GESTURE_NAMES) {
     const actionEl = document.getElementById(`action-${name}`) as HTMLSelectElement | null;
     const holdEl = document.getElementById(`hold-${name}`) as HTMLInputElement | null;
@@ -154,6 +166,21 @@ window.backend.on("frame", (message) => {
 window.backend.on("config", (message) => {
   currentConfig = (message as { config: AppConfigJson }).config;
   applyConfigToForm();
+});
+
+const CURSOR_APPLY_DEBOUNCE_MS = 150;
+let cursorApplyTimer: ReturnType<typeof setTimeout> | null = null;
+
+function sendCursorTheme(): void {
+  readFormIntoConfig();
+  window.backend.send({ type: "set_cursor_theme", ...currentConfig.cursor });
+}
+
+["cursor_size_px", "cursor_mode", "cursor_custom_color"].forEach((id) => {
+  document.getElementById(id)?.addEventListener("input", () => {
+    if (cursorApplyTimer) clearTimeout(cursorApplyTimer);
+    cursorApplyTimer = setTimeout(sendCursorTheme, CURSOR_APPLY_DEBOUNCE_MS);
+  });
 });
 
 applyConfigToForm();

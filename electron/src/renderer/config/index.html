@@ -24,6 +24,7 @@
       <div class="tabs">
         <button class="tab-button active" data-tab="movimento">Movimento</button>
         <button class="tab-button" data-tab="gestos">Gestos</button>
+        <button class="tab-button" data-tab="extras">Extras</button>
         <button class="tab-button" data-tab="ajuda">Ajuda</button>
       </div>
       <div id="tab-movimento" class="tab-panel active">
@@ -50,6 +51,26 @@
       </div>
       <div id="tab-gestos" class="tab-panel">
         <div id="gesture-rows"></div>
+      </div>
+      <div id="tab-extras" class="tab-panel">
+        <div class="cursor-section">
+          <p class="hint">Aparência do cursor</p>
+          <label>Tamanho da seta
+            <input type="range" id="cursor_size_px" min="32" max="96" step="8" />
+          </label>
+          <label>Cor
+            <select id="cursor_mode">
+              <option value="default">Padrão do Windows</option>
+              <option value="white">Branco</option>
+              <option value="black">Preto</option>
+              <option value="custom">Personalizada</option>
+              <option value="mista">Mista (inverte com o fundo)</option>
+            </select>
+          </label>
+          <label>Cor personalizada
+            <input type="color" id="cursor_custom_color" />
+          </label>
+        </div>
       </div>
       <div id="tab-ajuda" class="tab-panel">
         <p>

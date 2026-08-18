@@ -65,7 +65,7 @@ O Electron abre a janela de configuração automaticamente na primeira execuçã
 
 Na primeira execução abre a janela de configuração: à esquerda ficam a
 prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
-"Salvar configurações"; à direita, três abas.
+"Salvar configurações"; à direita, quatro abas.
 
 - **Movimento**: não há mais gravação de extremos — o cursor se move de
   forma relativa à cabeça, como um mouse de verdade. Sliders ajustam esse
@@ -86,6 +86,11 @@ prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
   ação de mouse de cada gesto e, no slider ao lado, por quanto tempo a
   expressão precisa ser segurada pra valer (padrão 400ms — bem acima de uma
   piscada natural, que dura ~100-150ms).
+- **Extras**: "Aparência do cursor" ajusta o tamanho da seta real do
+  Windows e sua cor (branco, preto, personalizada, ou "mista", que inverte
+  a cor do que está embaixo dela para nunca ficar invisível) — aplica na
+  hora, e some junto com o cursor original do Windows quando o app é
+  fechado, a menos que você clique em Salvar configurações.
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
 Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar
