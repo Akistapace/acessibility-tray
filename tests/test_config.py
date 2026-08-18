@@ -303,3 +303,43 @@ def test_config_to_dict_from_dict_round_trip():
     assert restored.calibration.sensitivity_x == 0.04
     assert restored.gestures["mouth_open"].action == "scroll_down"
     assert restored.action_buttons.x == 12.0
+
+
+def test_default_config_has_the_default_cursor_theme():
+    cursor = config_mod.default_config().cursor
+    assert cursor.size_px == 32
+    assert cursor.mode == "default"
+    assert cursor.custom_color == "#000000"
+
+
+def test_cursor_fields_round_trip(tmp_path):
+    path = tmp_path / "config.json"
+    original = config_mod.default_config()
+    original.cursor.size_px = 64
+    original.cursor.mode = "mista"
+    original.cursor.custom_color = "#ff8800"
+
+    config_mod.save_config(path, original)
+    loaded = config_mod.load_config(path)
+
+    assert loaded.cursor.size_px == 64
+    assert loaded.cursor.mode == "mista"
+    assert loaded.cursor.custom_color == "#ff8800"
+
+
+def test_load_config_clamps_out_of_range_cursor_size(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"cursor": {"size_px": 999, "mode": "custom"}}))
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.cursor.size_px == config_mod.CURSOR_SIZE_RANGE[1]
+
+
+def test_load_config_invalid_cursor_mode_falls_back_to_default(tmp_path):
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"cursor": {"mode": "rainbow"}}))
+
+    loaded = config_mod.load_config(path)
+
+    assert loaded.cursor.mode == "default"

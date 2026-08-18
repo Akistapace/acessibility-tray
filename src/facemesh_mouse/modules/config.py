@@ -16,6 +16,9 @@ VALID_ACTIONS = {
     "freeze_cursor",
 }
 
+CURSOR_SIZE_RANGE = (32, 96)
+VALID_CURSOR_MODES = {"default", "white", "black", "custom", "mista"}
+
 GESTURE_NAMES = [
     "blink_a",
     "blink_b",
@@ -127,6 +130,17 @@ class ActionButtonsConfig:
     y: float | None = None
 
 
+@dataclass
+class CursorConfig:
+    """The real Windows Arrow cursor's theme. size_px==32 and mode=="default"
+    together mean "untouched" -- see cursor_theme.apply_cursor's no-op
+    guard, which this config's defaults are built to trigger."""
+
+    size_px: int = 32
+    mode: str = "default"
+    custom_color: str = "#000000"
+
+
 def _optional_float(value) -> float | None:
     if value is None:
         return None
@@ -134,6 +148,34 @@ def _optional_float(value) -> float | None:
         return float(value)
     except (TypeError, ValueError):
         return None
+
+
+def _clamped_cursor_size(raw_cursor: dict, fallback: int) -> int:
+    low, high = CURSOR_SIZE_RANGE
+    try:
+        value = int(raw_cursor.get("size_px", fallback))
+    except (TypeError, ValueError):
+        value = fallback
+    return max(low, min(high, value))
+
+
+def cursor_from_dict(raw_cursor: dict) -> CursorConfig:
+    """Public (unlike `_merge_gesture`) because backend.py's
+    `_cmd_set_cursor_theme` (Task 4) calls this directly with a single
+    command's fields, not just from `config_from_dict`'s full-document
+    parse -- both need the exact same clamp/fallback rules."""
+    default = CursorConfig()
+    mode = raw_cursor.get("mode", default.mode)
+    if mode not in VALID_CURSOR_MODES:
+        mode = default.mode
+    custom_color = raw_cursor.get("custom_color", default.custom_color)
+    if not isinstance(custom_color, str):
+        custom_color = default.custom_color
+    return CursorConfig(
+        size_px=_clamped_cursor_size(raw_cursor, default.size_px),
+        mode=mode,
+        custom_color=custom_color,
+    )
 
 
 @dataclass
@@ -149,6 +191,7 @@ class AppConfig:
     calibration: CalibrationConfig = field(default_factory=CalibrationConfig)
     gestures: dict = field(default_factory=dict)
     action_buttons: ActionButtonsConfig = field(default_factory=ActionButtonsConfig)
+    cursor: CursorConfig = field(default_factory=CursorConfig)
 
 
 def default_config() -> AppConfig:
@@ -187,6 +230,7 @@ def config_to_dict(config: AppConfig) -> dict:
         "calibration": asdict(config.calibration),
         "gestures": {name: asdict(cfg) for name, cfg in config.gestures.items()},
         "action_buttons": asdict(config.action_buttons),
+        "cursor": asdict(config.cursor),
     }
 
 
@@ -238,10 +282,13 @@ def config_from_dict(raw: dict) -> AppConfig:
         y=_optional_float(raw_buttons.get("y")),
     )
 
+    cursor = cursor_from_dict(raw.get("cursor", {}))
+
     return AppConfig(
         calibration=calibration,
         gestures=gestures,
         action_buttons=action_buttons,
+        cursor=cursor,
     )
 
 
