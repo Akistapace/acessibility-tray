@@ -73,11 +73,12 @@ function applyConfigToForm(): void {
     if (el.type === "checkbox") el.checked = Boolean(value);
     else el.value = String(value);
   }
-  (document.getElementById("cursor_size_px") as HTMLInputElement).value =
-    String(currentConfig.cursor.size_px);
-  (document.getElementById("cursor_mode") as HTMLSelectElement).value = currentConfig.cursor.mode;
-  (document.getElementById("cursor_custom_color") as HTMLInputElement).value =
-    currentConfig.cursor.custom_color;
+  const cursorSizeEl = document.getElementById("cursor_size_px") as HTMLInputElement | null;
+  if (cursorSizeEl) cursorSizeEl.value = String(currentConfig.cursor.size_px);
+  const cursorModeEl = document.getElementById("cursor_mode") as HTMLSelectElement | null;
+  if (cursorModeEl) cursorModeEl.value = currentConfig.cursor.mode;
+  const cursorColorEl = document.getElementById("cursor_custom_color") as HTMLInputElement | null;
+  if (cursorColorEl) cursorColorEl.value = currentConfig.cursor.custom_color;
   renderGestureRows();
 }
 

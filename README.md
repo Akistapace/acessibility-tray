@@ -89,8 +89,9 @@ prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
 - **Extras**: "Aparência do cursor" ajusta o tamanho da seta real do
   Windows e sua cor (branco, preto, personalizada, ou "mista", que inverte
   a cor do que está embaixo dela para nunca ficar invisível) — aplica na
-  hora, e some junto com o cursor original do Windows quando o app é
-  fechado, a menos que você clique em Salvar configurações.
+  hora; ao fechar o app o cursor original do Windows volta, e o tema só
+  reaparece no próximo início se você tiver clicado em "Salvar
+  configurações".
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
 Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar

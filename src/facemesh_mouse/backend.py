@@ -190,10 +190,9 @@ def main() -> None:
     _redirect_prints_to_stderr()
     config = config_mod.load_config(CONFIG_PATH)
 
-    if (config.cursor.size_px, config.cursor.mode) != (32, "default"):
-        cursor_theme.apply_cursor(
-            config.cursor.size_px, config.cursor.mode, config.cursor.custom_color
-        )
+    cursor_theme.apply_cursor(
+        config.cursor.size_px, config.cursor.mode, config.cursor.custom_color
+    )
 
     def send(message: dict) -> None:
         proto.write_message(real_stdout, message)
@@ -222,8 +221,8 @@ def main() -> None:
             server.handle_command(command)
     finally:
         stop.set()
-        engine.stop()
         cursor_theme.restore_cursor()
+        engine.stop()
 
 
 if __name__ == "__main__":

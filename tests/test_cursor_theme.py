@@ -28,6 +28,22 @@ def test_apply_cursor_is_a_no_op_at_the_untouched_defaults(tmp_path):
     assert not (tmp_path / "arrow.cur").exists()
 
 
+def test_apply_cursor_reverts_to_the_original_when_called_with_the_default_after_a_theme_was_applied(tmp_path):
+    # Same as test_apply_cursor_stashes_the_original_registry_value_once:
+    # undo the autouse fixture's default FileNotFoundError so the mocked
+    # QueryValueEx return value is actually reached during the stash.
+    cursor_theme.winreg.OpenKey.side_effect = None
+    cursor_theme.winreg.QueryValueEx.return_value = ("C:\\some\\original.cur", 1)
+    cursor_theme.apply_cursor(64, "black", "#000000", cursor_dir=tmp_path)  # apply a theme first
+
+    cursor_theme.apply_cursor(32, "default", "#000000", cursor_dir=tmp_path)  # revert
+
+    (_key, name, _reserved, _kind, value), _kwargs = cursor_theme.winreg.SetValueEx.call_args
+    assert name == cursor_theme._ARROW_VALUE
+    assert value == "C:\\some\\original.cur"
+    assert not (tmp_path / "original_arrow.json").exists()
+
+
 def test_apply_cursor_writes_a_cur_file_and_sets_the_registry(tmp_path):
     cursor_theme.apply_cursor(48, "white", "#000000", cursor_dir=tmp_path)
 

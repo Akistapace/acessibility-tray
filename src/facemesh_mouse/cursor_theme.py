@@ -68,6 +68,12 @@ def apply_cursor(
     size_px: int, mode: str, custom_color: str, cursor_dir: Path = _CURSOR_DIR
 ) -> None:
     if size_px == _DEFAULT_SIZE_PX and mode == "default":
+        # Nothing was ever applied -> restore_cursor() is a pure no-op (no
+        # registry read/write) because no stash file exists, so the
+        # untouched-user guarantee is unchanged. Something WAS applied ->
+        # this is an explicit revert to the Windows default, so put the
+        # original back.
+        restore_cursor(cursor_dir)
         return
     try:
         effective_mode = mode if mode in cursor_image.VALID_MODES else "default"
