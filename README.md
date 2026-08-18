@@ -29,7 +29,9 @@ lugar da calibração de quatro pontos) e
 (lançar o teclado virtual do Windows) e
 [docs/superpowers/specs/2026-08-13-floating-keyboard-button-design.md](docs/superpowers/specs/2026-08-13-floating-keyboard-button-design.md)
 (círculo flutuante e arrastável como único ponto de entrada, no lugar do
-item na bandeja e do botão na aba Ajuda)
+item na bandeja e do botão na aba Ajuda) e
+[docs/superpowers/specs/2026-08-18-cursor-appearance-design.md](docs/superpowers/specs/2026-08-18-cursor-appearance-design.md)
+(tamanho, cor e modo "mista" da seta real do Windows)
 para o design completo.
 
 ## Requisitos
@@ -92,7 +94,12 @@ prévia da câmera, o botão persistente "Iniciar controle do mouse" e o botão
   erro `REGDB_E_CLASSNOTREG` no log do backend) e o botão nunca abre nada;
   desative-o aqui pra tirá-lo da tela. Outro interruptor esconde do mesmo
   jeito o botão de digitação por voz. Um terceiro liga ou desliga o
-  registro de cliques em `clicks.log`.
+  registro de cliques em `clicks.log`. "Aparência do cursor" ajusta o
+  tamanho da seta real do Windows e sua cor (branco, preto, personalizada,
+  ou "mista", que inverte a cor do que está embaixo dela para nunca ficar
+  invisível) — aplica na hora; ao fechar o app o cursor original do
+  Windows volta, e o tema só reaparece no próximo início se você tiver
+  clicado em "Salvar configurações".
 - **Ajuda**: o mesmo resumo de uso e atalhos, dentro da própria janela.
 
 Quando terminar de ajustar o movimento e mapear os gestos, clique em "Iniciar

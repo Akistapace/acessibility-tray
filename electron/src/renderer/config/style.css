@@ -236,3 +236,15 @@ select {
   .save-trigger[data-state="saving"]::before { animation: none; }
   .status-label[data-state="running"]::before { animation: none; }
 }
+
+.cursor-section { display: flex; flex-direction: column; gap: 10px; }
+
+input[type="color"] {
+  width: 100%;
+  height: 32px;
+  padding: 2px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  cursor: pointer;
+}

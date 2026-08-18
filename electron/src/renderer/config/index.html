@@ -77,6 +77,24 @@
           da tela junto com o de teclado.
         </p>
         <label><input type="checkbox" id="click_logging_enabled" /> Registrar cliques em clicks.log</label>
+        <div class="cursor-section">
+          <p class="hint">Aparência do cursor</p>
+          <label>Tamanho da seta
+            <input type="range" id="cursor_size_px" min="32" max="96" step="8" />
+          </label>
+          <label>Cor
+            <select id="cursor_mode">
+              <option value="default">Padrão do Windows</option>
+              <option value="white">Branco</option>
+              <option value="black">Preto</option>
+              <option value="custom">Personalizada</option>
+              <option value="mista">Mista (inverte com o fundo)</option>
+            </select>
+          </label>
+          <label>Cor personalizada
+            <input type="color" id="cursor_custom_color" />
+          </label>
+        </div>
         <button class="secondary-button save-trigger">Salvar configurações</button>
       </div>
       <div id="tab-ajuda" class="tab-panel">
