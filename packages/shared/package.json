@@ -1,0 +1,13 @@
+{
+  "name": "@facemesh-mouse/shared",
+  "version": "0.1.0",
+  "private": true,
+  "main": "src/types/tracking.ts",
+  "types": "src/types/tracking.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.2"
+  }
+}
