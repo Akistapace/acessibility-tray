@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { foregroundWindowTitle } from "./win32";
 
 export const LOG_PATH = "clicks.log";
 
@@ -37,18 +38,11 @@ function rotateIfNeeded(): void {
   fs.renameSync(currentPath, `${currentPath}.1`);
 }
 
-function defaultWindowTitle(): string {
-  // Real implementation wired in Task 8, step 4 -- placeholder title until
-  // win32.ts exists so this module has no forward import to a file that
-  // doesn't exist yet at this point in the plan.
-  return "?";
-}
-
 export function record(
   gestureName: string,
   action: string,
   position: [number, number],
-  windowTitleFn: () => string = defaultWindowTitle
+  windowTitleFn: () => string = foregroundWindowTitle
 ): void {
   if (!enabled) return;
   const title = windowTitleFn() || "?";
