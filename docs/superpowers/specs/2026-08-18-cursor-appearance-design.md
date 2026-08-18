@@ -1,7 +1,7 @@
 # FaceMesh Mouse — Cursor Appearance (Size / Color / Mista) — Design Spec
 
 **Date:** 2026-08-18
-**Status:** Draft
+**Status:** Approved
 **Builds on:** `2026-08-05-facemesh-mouse-design.md` (v1),
 `2026-08-05-usability-anchor-mode-design.md` (v2),
 `2026-08-06-single-instance-background-startup-design.md` (v3),
