@@ -51,7 +51,7 @@ def render_color_bitmap(size_px: int, fill: tuple[int, int, int]) -> Image.Image
     outline = _contrast_outline_color(fill)
     image = Image.new("RGBA", (size_px, size_px), (0, 0, 0, 0))
     ImageDraw.Draw(image).polygon(
-        _polygon_points(size_px), fill=(*fill, 255)
+        _polygon_points(size_px), fill=(*fill, 255), outline=(*outline, 255)
     )
     image.putalpha(mask)
     return image

@@ -22,9 +22,9 @@ def test_render_color_bitmap_is_transparent_outside_the_silhouette():
     assert image.getpixel((31, 31))[3] == 0
 
 
-def test_render_color_bitmap_is_opaque_fill_color_at_the_tip():
+def test_render_color_bitmap_is_opaque_fill_color_in_the_shaft():
     image = cursor_image.render_color_bitmap(32, (255, 0, 0))
-    r, g, b, a = image.getpixel((1, 1))
+    r, g, b, a = image.getpixel((1, 5))
     assert a == 255
     assert (r, g, b) == (255, 0, 0)
 
