@@ -136,7 +136,11 @@ sem limite; nunca é enviado pra lugar nenhum, e pode ser desligado na aba
 Movimento.
 
 Config salvo em `config.json` e histórico de cliques em `clicks.log`,
-ambos na raiz do projeto (ignorados pelo git).
+ambos em `apps/desktop/` (ignorados pelo git), já que é de lá que o
+Electron roda (`apps/desktop` é o cwd do processo). Quem tinha um
+`config.json` na raiz do projeto de antes dessa migração pro monorepo
+precisa movê-lo pra `apps/desktop/`, senão o app trata como primeira
+execução.
 
 ## Testes
 
