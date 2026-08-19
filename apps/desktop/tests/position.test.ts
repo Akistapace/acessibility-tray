@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { CLICK_DRAG_THRESHOLD_PX, isClick } from "../src/ui/buttons/clickOrDrag";
-import { WIDTH, SIZE, MARGIN, defaultPosition, resolvePosition } from "../src/modules/windows/buttonsPosition";
+import { CLICK_DRAG_THRESHOLD_PX, isClick } from "../src/renderer/buttons/clickOrDrag";
+import { WIDTH, SIZE, MARGIN, defaultPosition, resolvePosition } from "../src/main/windows/buttonsPosition";
 
 describe("isClick", () => {
   it("is a click within the threshold on both axes", () => {

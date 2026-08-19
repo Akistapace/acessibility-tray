@@ -1,4 +1,4 @@
-import type { FaceMetrics as SharedFaceMetrics } from "../../modules/types";
+import type { FaceMetrics as SharedFaceMetrics } from "@facemesh-mouse/shared";
 
 export const NOSE_TIP = 1;
 export const FOREHEAD_TOP = 10;

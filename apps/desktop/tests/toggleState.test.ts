@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeToggleState } from "../src/ui/config/toggleState";
+import { computeToggleState } from "../src/renderer/config/toggleState";
 
 const STOPPED = { control_enabled: false, paused: false, no_face: false, yielded: false };
 const PAUSED = { control_enabled: true, paused: true, no_face: false, yielded: false };

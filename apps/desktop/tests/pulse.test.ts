@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { pulseRadius } from "../src/ui/overlay/pulse";
+import { pulseRadius } from "../src/renderer/overlay/pulse";
 
 describe("pulseRadius", () => {
   it("starts at the start radius", () => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeFaceMetrics, type Point } from "../src/ui/tracking/faceMetrics";
+import { computeFaceMetrics, type Point } from "../src/renderer/tracking/faceMetrics";
 
 // Build a 468-point landmark array (MediaPipe FaceMesh topology) with every
 // index defaulted to the origin, then override only the indices this
