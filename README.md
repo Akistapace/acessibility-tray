@@ -43,8 +43,7 @@ para o design completo.
 ```powershell
 python -m venv .venv
 .venv\Scripts\pip install -r requirements-dev.txt
-cd electron
-npm install
+pnpm install
 ```
 
 ## Rodar (dev)
@@ -57,8 +56,7 @@ chamam `.venv\Scripts\...` direto).
 
 ```powershell
 .venv\Scripts\Activate.ps1
-cd electron
-npm run dev
+pnpm dev
 ```
 
 O Electron abre a janela de configuração automaticamente na primeira execução.
@@ -154,7 +152,6 @@ do pulso exigem checklist manual (ver spec).
 ## Build do instalador (.exe)
 
 ```powershell
-cd electron
 npm run dist:full
 ```
 
@@ -162,9 +159,9 @@ Esse comando builda o backend Python primeiro (`pyinstaller backend.spec`,
 a partir da raiz do projeto, gerando `dist/facemesh-mouse-backend.exe`) e
 depois roda o `electron-builder`, que empacota o Electron junto com o exe do
 backend num instalador único (`extraResources` em
-`electron/electron-builder.yml`).
+`apps/desktop/electron-builder.yml`).
 
-O instalador fica em `electron/release/FaceMesh Mouse Setup <versão>.exe`.
+O instalador fica em `apps/desktop/release/FaceMesh Mouse Setup <versão>.exe`.
 Pontos de atenção:
 
 - Arquivo grande por causa do MediaPipe/OpenCV/NumPy embutidos no backend.

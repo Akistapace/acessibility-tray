@@ -129,16 +129,23 @@ handlers stay thin" / receive-delegate-respond guidance in
 
 Only content with a real cross-boundary or duplication justification today:
 
-- `types/tracking.ts` — `FaceMetrics` and `TrackingFrame`, defined once in
-  `modules/types.ts` and consumed by both `src/ui/tracking` (producer) and
-  `src/modules` (consumer via the tracking IPC message) once the tracking
-  renderer exists. This is the one type genuinely shared across the
-  main/renderer process boundary in this app.
-- `constants/gestures.ts` — `GESTURE_NAMES` / `GestureName`, currently
-  defined independently in `src/modules/config.ts` (authoritative) and
-  hand-duplicated as a literal array in `src/ui/config/labels.ts`. Moving
-  this to `packages/shared` removes the drift risk; `labels.ts` keeps only
-  the Portuguese label strings, imported keyed off the shared name list.
+Only `types/tracking.ts` moves here (`FaceMetrics`, `TrackingFrame`) —
+both are used exclusively via `import type`, which TypeScript erases at
+compile time, so there is no runtime resolution cost in either the main
+process (Node, real `node_modules` resolution) or the renderer (plain
+`<script type="module">`, no bundler, no import map).
+
+`GESTURE_NAMES`/`GestureName` do **not** move here despite the
+duplication between `services/config.service.ts` and
+`renderer/config/labels.ts`: `GESTURE_NAMES` is consumed as a runtime
+*value* by `labels.ts`, and the renderer has no bundler to resolve a bare
+`@facemesh-mouse/shared` value import at runtime — it would compile and
+pass every Node-environment vitest test cleanly, then 404 the moment the
+real app opens the config window. Fixing the duplication needs either a
+build-time copy step or (more likely) having the renderer derive its
+gesture list from the `config` message it already receives instead of
+importing a static list — real work, left for a follow-up rather than
+riding along with a folder-layout move.
 
 Nothing else moves preemptively — `packages/shared/src/schemas/` is created
 empty as a placeholder directory only, not populated, since no other
@@ -151,8 +158,10 @@ of scope for a folder-layout change.
 - pnpm is not installed locally; bootstrap via Node 24's built-in corepack
   (`corepack enable`, pin a `packageManager` field in the root
   `package.json`) rather than a global npm install.
-- Each workspace package (`apps/desktop`, `packages/shared`) owns its own
-  `package.json`, `vitest.config.ts`, and tests. Root `package.json` only
+- Each workspace package owns its own `package.json`. `apps/desktop` also
+  owns `vitest.config.ts` and `tests/`; `packages/shared` owns a
+  `tsconfig.json` and a `typecheck` script, since it currently holds only
+  type-only exports with nothing to runtime-test. Root `package.json` only
   fans out (`pnpm -r build`, `pnpm -r test`, `pnpm --filter desktop dev`).
 - `apps/desktop/tsconfig.json` references `packages/shared` via TS project
   references (or a plain workspace `"@facemesh-mouse/shared": "workspace:*"`
