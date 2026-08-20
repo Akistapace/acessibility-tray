@@ -22,6 +22,57 @@ declare global {
 
 const WORK_WIDTH = 640;
 const WORK_HEIGHT = 480;
+const PREVIEW_WIDTH = 480;
+const PREVIEW_HEIGHT = 360;
+const JPEG_QUALITY = 0.8;
+
+// Hoisted to module scope (rather than declared inside main(), where the
+// brief's own code sample implies it lives alongside WORK_WIDTH/WORK_HEIGHT)
+// so renderPreviewJpeg below can read it -- index.html's <script> tag comes
+// after the <canvas id="work"> element, so it already exists in the DOM by
+// the time this runs.
+const workCanvas = document.getElementById("work") as HTMLCanvasElement;
+
+const previewCanvas = document.createElement("canvas");
+previewCanvas.width = PREVIEW_WIDTH;
+previewCanvas.height = PREVIEW_HEIGHT;
+const previewCtx = previewCanvas.getContext("2d")!;
+
+function renderPreviewJpeg(metrics: ReturnType<typeof computeFaceMetrics>): string {
+  previewCtx.drawImage(workCanvas, 0, 0, WORK_WIDTH, WORK_HEIGHT, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
+  if (metrics) {
+    const leftEye: Point = [
+      metrics.landmarks[EYE_OUTER_A][0] * PREVIEW_WIDTH,
+      metrics.landmarks[EYE_OUTER_A][1] * PREVIEW_HEIGHT,
+    ];
+    const rightEye: Point = [
+      metrics.landmarks[EYE_OUTER_B][0] * PREVIEW_WIDTH,
+      metrics.landmarks[EYE_OUTER_B][1] * PREVIEW_HEIGHT,
+    ];
+    const center: Point = [metrics.noseX * PREVIEW_WIDTH, metrics.noseY * PREVIEW_HEIGHT];
+
+    previewCtx.strokeStyle = "rgb(255, 255, 0)";
+    previewCtx.lineWidth = 1;
+    previewCtx.beginPath();
+    previewCtx.moveTo(leftEye[0], leftEye[1]);
+    previewCtx.lineTo(rightEye[0], rightEye[1]);
+    previewCtx.stroke();
+
+    previewCtx.fillStyle = "rgb(0, 255, 0)";
+    for (const [x, y] of [leftEye, rightEye]) {
+      previewCtx.beginPath();
+      previewCtx.arc(x, y, 2, 0, 2 * Math.PI);
+      previewCtx.fill();
+    }
+
+    previewCtx.fillStyle = "rgb(255, 0, 0)";
+    previewCtx.beginPath();
+    previewCtx.arc(center[0], center[1], 5, 0, 2 * Math.PI);
+    previewCtx.fill();
+  }
+  const dataUrl = previewCanvas.toDataURL("image/jpeg", JPEG_QUALITY);
+  return dataUrl.slice(dataUrl.indexOf(",") + 1);
+}
 
 // Mirrors engine.py's _SEED_LANDMARKS/_head_size_px exactly.
 const SEED_LANDMARKS = [98, 327, 168, 6, 197, 195, 5, 4, 234, 454, 127, 356, 122, 351];
@@ -37,7 +88,6 @@ window.tracking.onSetPreview((enabled) => { previewEnabled = enabled; });
 
 async function main(): Promise<void> {
   const video = document.getElementById("video") as HTMLVideoElement;
-  const workCanvas = document.getElementById("work") as HTMLCanvasElement;
   const workCtx = workCanvas.getContext("2d", { willReadFrequently: true })!;
 
   let stream: MediaStream;
@@ -102,8 +152,11 @@ async function main(): Promise<void> {
       pointTracker.reset();
     }
 
-    // Task 16 fills in the preview.
-    window.tracking.sendFrame({ metrics, movement, previewJpegBase64: null });
+    window.tracking.sendFrame({
+      metrics,
+      movement,
+      previewJpegBase64: previewEnabled ? renderPreviewJpeg(metrics) : null,
+    });
 
     requestAnimationFrame(loop);
   };
