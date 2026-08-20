@@ -8,3 +8,13 @@ contextBridge.exposeInMainWorld("backend", {
     return () => ipcRenderer.removeListener(`backend:${channel}`, listener);
   },
 });
+
+contextBridge.exposeInMainWorld("tracking", {
+  sendFrame: (frame: Record<string, unknown>) => ipcRenderer.send("tracking:frame", frame),
+  cameraError: () => ipcRenderer.send("tracking:camera-error"),
+  onSetPreview: (callback: (enabled: boolean) => void) => {
+    const listener = (_event: IpcRendererEvent, enabled: boolean) => callback(enabled);
+    ipcRenderer.on("tracking:set-preview", listener);
+    return () => ipcRenderer.removeListener("tracking:set-preview", listener);
+  },
+});

@@ -32,6 +32,7 @@ export class BackendServer extends EventEmitter {
   private frameSeq = 0;
   private lastStatusJson: string | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
+  private previewListeners: Array<(enabled: boolean) => void> = [];
 
   constructor(deps: BackendServerDeps) {
     super();
@@ -49,6 +50,10 @@ export class BackendServer extends EventEmitter {
   stop(): void {
     if (this.statusTimer) clearInterval(this.statusTimer);
     this.statusTimer = null;
+  }
+
+  onPreviewChange(callback: (enabled: boolean) => void): void {
+    this.previewListeners.push(callback);
   }
 
   private pushStatusIfChanged(): void {
@@ -94,6 +99,7 @@ export class BackendServer extends EventEmitter {
       switch (type) {
         case "set_preview":
           this.previewEnabled = Boolean(command.enabled);
+          for (const listener of this.previewListeners) listener(this.previewEnabled);
           break;
         case "start":
           this.engine.controlEnabled = true;
