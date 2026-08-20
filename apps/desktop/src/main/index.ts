@@ -5,6 +5,8 @@ import { TrackingEngine } from "./services/trackingEngine.service";
 import { NutJsMouseDriver } from "./services/mouseController.service";
 import { loadConfig } from "./services/config.service";
 import { toggleTouchKeyboard } from "./services/win32.service";
+import * as clickLog from "./services/clickLog.service";
+import { toggleVoiceTyping } from "./services/keyboard.service";
 import { wireIpc } from "./ipc";
 import { createTray } from "./services/tray.service";
 import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
@@ -39,14 +41,18 @@ if (!gotLock) {
     const { width, height } = screen.getPrimaryDisplay().size;
 
     const engine = new TrackingEngine(config, new NutJsMouseDriver(), [width, height], (gesture, action, position) => {
-      // wired to clickLog.record + an `action` message in Task 17
+      clickLog.record(gesture, action, position);
+      backend.emit("message", { type: "action", gesture, action, x: position[0], y: position[1] });
     });
     backend = new BackendServer({
       engine,
       config,
       configPath: "config.json",
       toggleTouchKeyboard,
+      toggleVoiceTyping,
     });
+
+    if (config.calibration.click_logging_enabled) clickLog.enable();
 
     backend.on("message", (message: { type: string; message?: string }) => {
       if (message.type !== "error") return;
