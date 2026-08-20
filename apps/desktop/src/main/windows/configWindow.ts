@@ -1,6 +1,6 @@
 import { app, BrowserWindow } from "electron";
 import path from "node:path";
-import { BackendProcess } from "../services/backendProcess";
+import type { BackendServer } from "../services/backendServer";
 
 let win: BrowserWindow | null = null;
 
@@ -15,7 +15,7 @@ app.on("before-quit", () => {
   isQuitting = true;
 });
 
-export function createConfigWindow(backend: BackendProcess): BrowserWindow {
+export function createConfigWindow(backend: BackendServer): BrowserWindow {
   win = new BrowserWindow({
     width: 1060,
     height: 680,

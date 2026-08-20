@@ -1,13 +1,13 @@
 import { BrowserWindow, screen } from "electron";
 import path from "node:path";
-import { BackendProcess } from "../services/backendProcess";
+import type { BackendServer } from "../services/backendServer";
 import { defaultPosition, resolvePosition, WIDTH, SIZE } from "./buttonsPosition";
 
 let win: BrowserWindow | null = null;
-let backendRef: BackendProcess | null = null;
+let backendRef: BackendServer | null = null;
 
 export function createButtonsWindow(
-  backend: BackendProcess,
+  backend: BackendServer,
   savedX: number | null,
   savedY: number | null
 ): BrowserWindow {

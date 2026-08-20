@@ -1,6 +1,6 @@
 import { app, globalShortcut, Menu, nativeImage, Tray } from "electron";
 import path from "node:path";
-import { BackendProcess } from "./backendProcess";
+import type { BackendServer } from "./backendServer";
 import { computeTrayState, TrayStatus } from "./trayState";
 import { showConfigWindow } from "../windows/configWindow";
 
@@ -14,7 +14,7 @@ const ICON_FILES: Record<string, string> = {
 let tray: Tray | null = null;
 let lastStatus: TrayStatus = { control_enabled: false, paused: false, no_face: false, yielded: false };
 
-export function createTray(backend: BackendProcess): Tray {
+export function createTray(backend: BackendServer): Tray {
   const iconPath = path.join(__dirname, "..", "..", "assets", ICON_FILES.running);
   tray = new Tray(nativeImage.createFromPath(iconPath));
   tray.setToolTip("FaceMesh Mouse");

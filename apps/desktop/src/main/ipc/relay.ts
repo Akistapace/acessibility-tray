@@ -1,7 +1,7 @@
 import { BrowserWindow, ipcMain } from "electron";
-import { BackendProcess } from "../services/backendProcess";
+import type { BackendServer } from "../services/backendServer";
 
-export function wireBackendRelay(backend: BackendProcess): void {
+export function wireBackendRelay(backend: BackendServer): void {
   backend.on("message", (message: { type: string }) => {
     for (const win of BrowserWindow.getAllWindows()) {
       win.webContents.send(`backend:${message.type}`, message);
