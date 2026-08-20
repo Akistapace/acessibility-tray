@@ -27,7 +27,11 @@ describe("wireBackendRelay", () => {
     backend.send = vi.fn();
     wireBackendRelay(backend);
 
-    const handler = onMock.mock.calls.find(([channel]) => channel === "backend:send")?.[1];
+    // .findLast, not .find: if a prior test's mock.calls ever survive into
+    // this one (clearMocks should prevent it, but this made the failure
+    // mode reproducible for two different implementers), the most recent
+    // registration -- this test's own -- is always the intended one.
+    const handler = onMock.mock.calls.findLast(([channel]) => channel === "backend:send")?.[1];
     handler(undefined, { type: "start" });
 
     expect(backend.send).toHaveBeenCalledWith({ type: "start" });
