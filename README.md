@@ -34,28 +34,21 @@ para o design completo.
 
 ## Requisitos
 
-- Windows, Python 3.11 (já usado neste projeto: `.venv` criado com
-  `C:\Users\ferna\AppData\Local\Programs\Python\Python311\python.exe`)
+- Windows
 - Webcam com permissão de câmera liberada no Windows
 
 ## Setup
 
 ```powershell
-python -m venv .venv
-.venv\Scripts\pip install -r requirements-dev.txt
 pnpm install
 ```
 
 ## Rodar (dev)
 
-Um único terminal: o próprio Electron sobe o backend Python (`run.py`) como
-processo filho, então não rode `run.py` à parte — dois backends brigariam
-pela mesma webcam. Como o Electron chama o `python` do PATH, ative a `.venv`
-antes; é o único comando do projeto que precisa de ativação (os outros
-chamam `.venv\Scripts\...` direto).
+Um único terminal — o Electron main process já contém todo o motor de
+rastreamento/gestos/mouse, sem processo filho separado.
 
 ```powershell
-.venv\Scripts\Activate.ps1
 pnpm dev
 ```
 
@@ -145,7 +138,7 @@ execução.
 ## Testes
 
 ```powershell
-.venv\Scripts\pytest
+pnpm test
 ```
 
 Cobre a lógica pura (motor de gestos, poda de pontos e curva de aceleração,
@@ -156,19 +149,16 @@ do pulso exigem checklist manual (ver spec).
 ## Build do instalador (.exe)
 
 ```powershell
-npm run dist:full
+pnpm dist
 ```
 
-Esse comando builda o backend Python primeiro (`pyinstaller backend.spec`,
-a partir da raiz do projeto, gerando `dist/facemesh-mouse-backend.exe`) e
-depois roda o `electron-builder`, que empacota o Electron junto com o exe do
-backend num instalador único (`extraResources` em
-`apps/desktop/electron-builder.yml`).
+Empacota o Electron (motor de rastreamento incluído) num instalador único
+via `electron-builder`.
 
 O instalador fica em `apps/desktop/release/FaceMesh Mouse Setup <versão>.exe`.
 Pontos de atenção:
 
-- Arquivo grande por causa do MediaPipe/OpenCV/NumPy embutidos no backend.
-- Primeira execução é mais lenta (o backend descompacta pra pasta temporária).
+- Primeira execução é mais lenta (carrega o modelo do MediaPipe e o WASM
+  do opencv.js).
 - Instalador não assinado → Windows SmartScreen avisa no primeiro uso.
 - Precisa conceder permissão de câmera do Windows ao app na primeira vez.
