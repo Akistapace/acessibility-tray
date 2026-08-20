@@ -37,9 +37,10 @@ facemesh-mouse/
 │       │   │   │   ├── relay.ts                 # mainRelay EventEmitter + namespaced re-emit (was ipcRelay.ts)
 │       │   │   │   ├── config.ipc.ts             # config:* handlers -> services/config.service.ts, windows/configWindow.ts
 │       │   │   │   ├── buttons.ipc.ts            # buttons:* handlers -> windows/buttonsWindow.ts
-│       │   │   │   └── engine.ipc.ts             # start/stop/pause/resume/save_config/update_config/open_keyboard/open_voice_typing/highlight_gesture/get_config -> services/engine.service.ts
+│       │   │   │   └── engine.ipc.ts             # start/stop/pause/resume/save_config/update_config/open_keyboard/open_voice_typing/highlight_gesture/get_config -> services/backendServer.ts
 │       │   │   ├── services/
-│       │   │   │   ├── engine.service.ts         # was engine.ts: command dispatch + frame loop orchestration
+│       │   │   │   ├── trackingEngine.service.ts  # was engine.py's Engine: per-frame gesture eval + mouse control orchestration
+│       │   │   │   ├── backendServer.ts            # was backend.py's BackendServer: command dispatch + frame/status push loops (owns a TrackingEngine)
 │       │   │   │   ├── gestures.service.ts        # was gestures.ts
 │       │   │   │   ├── mouseController.service.ts  # was mouseController.ts (nut-js)
 │       │   │   │   ├── config.service.ts            # was config.ts: calibration/gesture config load/save/merge/clamp
@@ -114,10 +115,14 @@ than the current code does:
 - `ipc/engine.ipc.ts` holds the handlers for engine-lifecycle commands
   (`start`, `stop`, `pause`, `resume`, `save_config`, `update_config`,
   `open_keyboard`, `open_voice_typing`, `highlight_gesture`, `get_config`) —
-  these already dispatch through `BackendServer.handle_command`'s equivalent
-  (`engine.service.ts`'s command table) in the current design, so this file
-  is mostly a thin re-export of that dispatch, wired to the `backend:send`
-  channel by `ipc/index.ts`.
+  these already dispatch through `backendServer.ts`'s `handleCommand`
+  method (the direct successor of Python's `BackendServer.handle_command`,
+  which itself owns a `trackingEngine.service.ts` instance for the
+  per-frame logic — kept as two files, not merged, matching both the
+  original Python split and the 19-task port plan's already-detailed,
+  fully-tested Tasks 10/11) in the current design, so this file is mostly
+  a thin re-export of that dispatch, wired to the `backend:send` channel
+  by `ipc/index.ts`.
 
 The renderer-facing contract (`window.backend.send(message)` /
 `window.backend.on(channel, cb)`) does not change — this reorganizes where
