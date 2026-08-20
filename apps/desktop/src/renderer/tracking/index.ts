@@ -1,3 +1,6 @@
+import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
+import { computeFaceMetrics, type Point } from "./faceMetrics";
+
 export {}; // module scope
 
 declare global {
@@ -34,6 +37,13 @@ async function main(): Promise<void> {
   video.srcObject = stream;
   await video.play();
 
+  const vision = await FilesetResolver.forVisionTasks("assets/wasm");
+  const faceLandmarker = await FaceLandmarker.createFromOptions(vision, {
+    baseOptions: { modelAssetPath: "assets/face_landmarker.task" },
+    runningMode: "VIDEO",
+    numFaces: 1,
+  });
+
   const loop = () => {
     // Mirrors the frame once, up front -- landmarks (Task 14), optical
     // flow (Task 15), and the preview overlay (Task 16) all read from this
@@ -45,9 +55,14 @@ async function main(): Promise<void> {
     workCtx.drawImage(video, 0, 0, WORK_WIDTH, WORK_HEIGHT);
     workCtx.restore();
 
-    // Task 14 replaces this stub with a real FaceLandmarker.detectForVideo
-    // call against workCanvas, and Task 15/16 fill in movement/preview.
-    window.tracking.sendFrame({ metrics: null, movement: [0, 0], previewJpegBase64: null });
+    const result = faceLandmarker.detectForVideo(workCanvas, performance.now());
+    const rawLandmarks = result.faceLandmarks[0];
+    const metrics = rawLandmarks
+      ? computeFaceMetrics(rawLandmarks.map((p): Point => [p.x, p.y]))
+      : null;
+
+    // Task 15/16 fill in movement/preview.
+    window.tracking.sendFrame({ metrics, movement: [0, 0], previewJpegBase64: null });
 
     requestAnimationFrame(loop);
   };
