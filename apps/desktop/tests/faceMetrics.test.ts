@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { computeFaceMetrics, type Point } from "../src/renderer/tracking/faceMetrics";
+import { computeFaceMetrics, GESTURE_LANDMARK_GROUPS, type Point } from "../src/renderer/tracking/faceMetrics";
 
 // Build a 468-point landmark array (MediaPipe FaceMesh topology) with every
 // index defaulted to the origin, then override only the indices this
@@ -64,5 +64,19 @@ describe("computeFaceMetrics", () => {
     const shiftedLeft = computeFaceMetrics(landmarks({ ...base, 61: [-3, 8], 291: [3, 8] }))!;
     expect(shiftedRight.mouthShiftRatio).toBeGreaterThan(0);
     expect(shiftedLeft.mouthShiftRatio).toBeLessThan(0);
+  });
+});
+
+describe("GESTURE_LANDMARK_GROUPS", () => {
+  it("has a non-empty landmark index array for every gesture name", async () => {
+    const { GESTURE_NAMES } = await import("../src/main/services/config.service");
+    for (const name of GESTURE_NAMES) {
+      expect(Array.isArray(GESTURE_LANDMARK_GROUPS[name])).toBe(true);
+      expect(GESTURE_LANDMARK_GROUPS[name].length).toBeGreaterThan(0);
+      for (const index of GESTURE_LANDMARK_GROUPS[name]) {
+        expect(Number.isInteger(index)).toBe(true);
+        expect(index).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 });

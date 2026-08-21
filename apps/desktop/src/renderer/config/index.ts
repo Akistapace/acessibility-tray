@@ -60,6 +60,12 @@ function renderGestureRows(): void {
       <label>Intervalo (ms) <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" /></label>
     `;
     container.appendChild(row);
+    row.addEventListener("pointerenter", () => {
+      window.backend.send({ type: "highlight_gesture", gesture: name });
+    });
+    row.addEventListener("pointerleave", () => {
+      window.backend.send({ type: "highlight_gesture", gesture: null });
+    });
     (row.querySelector(`#action-${name}`) as HTMLSelectElement).value = gesture.action;
     (row.querySelector(`#hold-${name}`) as HTMLInputElement).value = String(gesture.hold_ms);
     (row.querySelector(`#cooldown-${name}`) as HTMLInputElement).value = String(gesture.cooldown_ms);
@@ -135,7 +141,15 @@ document.querySelectorAll(".tab-button").forEach((button) => {
     document.querySelectorAll(".tab-button").forEach((b) => b.classList.remove("active"));
     document.querySelectorAll(".tab-panel").forEach((p) => p.classList.remove("active"));
     button.classList.add("active");
-    document.getElementById(`tab-${(button as HTMLElement).dataset.tab}`)?.classList.add("active");
+    const tab = (button as HTMLElement).dataset.tab;
+    document.getElementById(`tab-${tab}`)?.classList.add("active");
+    // Navigating away from the Gestos tab must clear any in-progress hover
+    // highlight -- pointerleave alone can't be relied on here (e.g. the
+    // pointer may land on the tab button itself without ever leaving the
+    // hovered row via a mouse-move event), so clear unconditionally.
+    if (tab !== "gestos") {
+      window.backend.send({ type: "highlight_gesture", gesture: null });
+    }
   });
 });
 

@@ -32,6 +32,10 @@ export function createTrackingWindow(backend: BackendServer): BrowserWindow {
     win.webContents.send("tracking:set-preview", enabled);
   });
 
+  backend.onHighlightChange((gesture) => {
+    win.webContents.send("tracking:highlight-gesture", gesture);
+  });
+
   // The tracking renderer plays the same role the deleted stdio backend
   // process used to: if it dies (GPU process loss, WASM OOM, etc.) the app
   // would otherwise sit with a dead tracking loop behind it and no cursor

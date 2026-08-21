@@ -20,6 +20,26 @@ export const EYELID_TOP_B = 386;
 export type Point = [number, number];
 export type FaceMetrics = SharedFaceMetrics;
 
+// The mouth gestures (open/left/right) all read off the same mouth-center-vs-
+// face-axis measurement, not distinct mouth regions -- matching tracker.py's
+// own comment -- so mouth_left/mouth_right share mouth_open's landmark set.
+const MOUTH_LANDMARKS = [MOUTH_TOP_INNER, MOUTH_BOTTOM_INNER, MOUTH_CORNER_LEFT, MOUTH_CORNER_RIGHT];
+
+// Which landmark indices to highlight in the camera preview when the config
+// window's Gestos tab hovers a given gesture row. Keys must match
+// config.service.ts's GESTURE_NAMES exactly.
+export const GESTURE_LANDMARK_GROUPS: Record<string, number[]> = {
+  blink_a: EYE_A,
+  blink_b: EYE_B,
+  blink_both: [...EYE_A, ...EYE_B],
+  eyebrow_a: [EYEBROW_A, EYELID_TOP_A, ...EYE_A],
+  eyebrow_b: [EYEBROW_B, EYELID_TOP_B, ...EYE_B],
+  eyebrow_both: [EYEBROW_A, EYELID_TOP_A, EYEBROW_B, EYELID_TOP_B, ...EYE_A, ...EYE_B],
+  mouth_open: MOUTH_LANDMARKS,
+  mouth_left: MOUTH_LANDMARKS,
+  mouth_right: MOUTH_LANDMARKS,
+};
+
 function dist(p1: Point, p2: Point): number {
   return Math.hypot(p1[0] - p2[0], p1[1] - p2[1]);
 }

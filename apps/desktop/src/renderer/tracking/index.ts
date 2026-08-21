@@ -6,7 +6,7 @@ import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 // at module scope), so it's awaited once below, inside main().
 import cvReadyPromise from "@techstark/opencv-js";
 import type { Mat as CvMat } from "@techstark/opencv-js";
-import { computeFaceMetrics, EYE_OUTER_A, EYE_OUTER_B, type Point } from "./faceMetrics";
+import { computeFaceMetrics, EYE_OUTER_A, EYE_OUTER_B, GESTURE_LANDMARK_GROUPS, type Point } from "./faceMetrics";
 import { PointTracker } from "./pointTracker";
 
 export {}; // module scope
@@ -17,6 +17,7 @@ declare global {
       sendFrame: (frame: unknown) => void;
       cameraError: () => void;
       onSetPreview: (callback: (enabled: boolean) => void) => () => void;
+      onHighlightGesture: (callback: (gesture: string | null) => void) => () => void;
     };
   }
 }
@@ -71,6 +72,31 @@ function renderPreviewJpeg(metrics: ReturnType<typeof computeFaceMetrics>): stri
     previewCtx.arc(center[0], center[1], 5, 0, 2 * Math.PI);
     previewCtx.fill();
   }
+  if (metrics && highlightedGesture) {
+    const indices = GESTURE_LANDMARK_GROUPS[highlightedGesture];
+    if (indices?.length) {
+      const xs = indices.map((i) => metrics.landmarks[i][0] * PREVIEW_WIDTH);
+      const ys = indices.map((i) => metrics.landmarks[i][1] * PREVIEW_HEIGHT);
+      const xMin = Math.min(...xs), xMax = Math.max(...xs);
+      const yMin = Math.min(...ys), yMax = Math.max(...ys);
+      const padX = Math.max((xMax - xMin) * 0.4, 10);
+      const padY = Math.max((yMax - yMin) * 0.4, 10);
+      const cx = (xMin + xMax) / 2, cy = (yMin + yMax) / 2;
+      const rx = (xMax - xMin) / 2 + padX, ry = (yMax - yMin) / 2 + padY;
+      previewCtx.save();
+      previewCtx.globalAlpha = 0.35;
+      previewCtx.fillStyle = "rgb(0, 255, 0)";
+      previewCtx.beginPath();
+      previewCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+      previewCtx.fill();
+      previewCtx.restore();
+      previewCtx.strokeStyle = "rgb(0, 255, 0)";
+      previewCtx.lineWidth = 2;
+      previewCtx.beginPath();
+      previewCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
+      previewCtx.stroke();
+    }
+  }
   const dataUrl = previewCanvas.toDataURL("image/jpeg", JPEG_QUALITY);
   return dataUrl.slice(dataUrl.indexOf(",") + 1);
 }
@@ -86,6 +112,9 @@ function headSizePx(landmarks: Point[], width: number, height: number): number {
 
 let previewEnabled = false;
 window.tracking.onSetPreview((enabled) => { previewEnabled = enabled; });
+
+let highlightedGesture: string | null = null;
+window.tracking.onHighlightGesture((gesture) => { highlightedGesture = gesture; });
 
 async function main(): Promise<void> {
   const video = document.getElementById("video") as HTMLVideoElement;

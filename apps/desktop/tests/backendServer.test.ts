@@ -65,6 +65,35 @@ describe("BackendServer.send", () => {
     expect(server.previewEnabled).toBe(false);
   });
 
+  it("highlight_gesture accepts a known gesture name and rejects unknown ones", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+
+    await server.send({ type: "highlight_gesture", gesture: "blink_a" });
+    expect(server.highlightedGesture).toBe("blink_a");
+
+    await server.send({ type: "highlight_gesture", gesture: "not_a_real_gesture" });
+    expect(server.highlightedGesture).toBeNull();
+
+    await server.send({ type: "highlight_gesture", gesture: "mouth_open" });
+    expect(server.highlightedGesture).toBe("mouth_open");
+    await server.send({ type: "highlight_gesture", gesture: null });
+    expect(server.highlightedGesture).toBeNull();
+  });
+
+  it("onHighlightChange listeners fire with the resolved gesture on every highlight_gesture command", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+    const seen: Array<string | null> = [];
+    server.onHighlightChange((gesture) => seen.push(gesture));
+
+    await server.send({ type: "highlight_gesture", gesture: "eyebrow_both" });
+    await server.send({ type: "highlight_gesture", gesture: "bogus" });
+    await server.send({ type: "highlight_gesture", gesture: null });
+
+    expect(seen).toEqual(["eyebrow_both", null, null]);
+  });
+
   it("update_config applies to the engine and updates server.config", async () => {
     const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
     const server = new BackendServer({ engine, config: configMod.defaultConfig() });

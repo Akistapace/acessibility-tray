@@ -6,7 +6,7 @@
 // wireBackendRelay already expects.
 import { EventEmitter } from "node:events";
 import * as clickLog from "./clickLog.service";
-import { configFromDict, configToDict, loadConfig, saveConfig, type AppConfig } from "./config.service";
+import { configFromDict, configToDict, GESTURE_NAMES, loadConfig, saveConfig, type AppConfig } from "./config.service";
 import { triggerProgress } from "./gestures.service";
 import type { TrackingEngine } from "./trackingEngine.service";
 import type { TrackingFrame } from "@facemesh-mouse/shared";
@@ -24,6 +24,7 @@ export interface BackendServerDeps {
 export class BackendServer extends EventEmitter {
   config: AppConfig;
   previewEnabled = false;
+  highlightedGesture: string | null = null;
 
   private readonly engine: TrackingEngine;
   private readonly configPath: string;
@@ -34,6 +35,7 @@ export class BackendServer extends EventEmitter {
   private lastStatusJson: string | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private previewListeners: Array<(enabled: boolean) => void> = [];
+  private highlightListeners: Array<(gesture: string | null) => void> = [];
 
   constructor(deps: BackendServerDeps) {
     super();
@@ -55,6 +57,10 @@ export class BackendServer extends EventEmitter {
 
   onPreviewChange(callback: (enabled: boolean) => void): void {
     this.previewListeners.push(callback);
+  }
+
+  onHighlightChange(callback: (gesture: string | null) => void): void {
+    this.highlightListeners.push(callback);
   }
 
   private pushStatusIfChanged(): void {
@@ -114,6 +120,12 @@ export class BackendServer extends EventEmitter {
           this.previewEnabled = Boolean(command.enabled);
           for (const listener of this.previewListeners) listener(this.previewEnabled);
           break;
+        case "highlight_gesture": {
+          const gesture = command.gesture as string | null;
+          this.highlightedGesture = gesture && (GESTURE_NAMES as readonly string[]).includes(gesture) ? gesture : null;
+          for (const listener of this.highlightListeners) listener(this.highlightedGesture);
+          break;
+        }
         case "start":
           this.engine.controlEnabled = true;
           break;
