@@ -26,6 +26,8 @@ let currentConfig: AppConfigJson = {
     click_logging_enabled: true,
     dwell_click_enabled: false,
     dwell_time_s: 1,
+    keyboard_button_enabled: true,
+    voice_button_enabled: true,
   },
   gestures: {},
   action_buttons: { x: null, y: null },

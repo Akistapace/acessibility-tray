@@ -24,6 +24,7 @@
       <div class="tabs">
         <button class="tab-button active" data-tab="movimento">Movimento</button>
         <button class="tab-button" data-tab="gestos">Gestos</button>
+        <button class="tab-button" data-tab="extras">Extras</button>
         <button class="tab-button" data-tab="ajuda">Ajuda</button>
       </div>
       <div id="tab-movimento" class="tab-panel active">
@@ -50,6 +51,22 @@
       </div>
       <div id="tab-gestos" class="tab-panel">
         <div id="gesture-rows"></div>
+      </div>
+      <div id="tab-extras" class="tab-panel">
+        <label>
+          <input type="checkbox" id="keyboard_button_enabled" /> Mostrar botão de teclado virtual
+        </label>
+        <p class="hint">
+          Em alguns PCs o teclado touch do Windows não está disponível e o botão
+          nunca abre nada — desative-o aqui pra tirá-lo da tela.
+        </p>
+        <label>
+          <input type="checkbox" id="voice_button_enabled" /> Mostrar botão de digitação por voz
+        </label>
+        <p class="hint">
+          Desative se você não usa digitação por voz — o botão de microfone some
+          da tela junto com o de teclado.
+        </p>
       </div>
       <div id="tab-ajuda" class="tab-panel">
         <p>

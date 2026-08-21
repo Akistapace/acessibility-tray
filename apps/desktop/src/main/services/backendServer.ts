@@ -143,7 +143,9 @@ export class BackendServer extends EventEmitter {
           if (payload.action_buttons) {
             merged.action_buttons = { ...(onDiskDict.action_buttons as object), ...(payload.action_buttons as object) };
           }
-          saveConfig(this.configPath, configFromDict(merged));
+          const saved = configFromDict(merged);
+          saveConfig(this.configPath, saved);
+          this.emit("message", { type: "config", config: configToDict(saved) });
           break;
         }
         case "open_keyboard": {

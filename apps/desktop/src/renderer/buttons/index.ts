@@ -1,4 +1,5 @@
 import { isClick } from "./clickOrDrag.js";
+import { isKeyboardButtonEnabled, isVoiceButtonEnabled } from "./buttonVisibility.js";
 
 declare global {
   interface Window {
@@ -70,3 +71,15 @@ for (const [el, name] of [
   el.addEventListener("pointerup", onPointerUp);
   el.addEventListener("pointermove", onPointerMove);
 }
+
+window.backend.on("config", (message) => {
+  const config = (message as { config: { calibration?: Record<string, unknown> } }).config;
+  keyboard.style.display = isKeyboardButtonEnabled(config) ? "" : "none";
+  mic.style.display = isVoiceButtonEnabled(config) ? "" : "none";
+});
+
+// This window never requests get_config on its own otherwise -- it only
+// learns the current config when some other window happens to trigger a
+// "config" broadcast. Ask for it explicitly on load so a keyboard/voice
+// button hidden via the Extras tab stays hidden across a restart.
+window.backend.send({ type: "get_config" });

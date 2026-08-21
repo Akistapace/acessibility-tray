@@ -63,6 +63,8 @@ export interface CalibrationConfig {
   click_logging_enabled: boolean;
   dwell_click_enabled: boolean;
   dwell_time_s: number;
+  keyboard_button_enabled: boolean;
+  voice_button_enabled: boolean;
 }
 
 export const CALIBRATION_RANGES: Record<string, [number, number]> = {
@@ -84,6 +86,8 @@ function defaultCalibration(): CalibrationConfig {
     click_logging_enabled: true,
     dwell_click_enabled: false,
     dwell_time_s: 1.0,
+    keyboard_button_enabled: true,
+    voice_button_enabled: true,
   };
 }
 
@@ -162,6 +166,12 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
   const dwellRaw = rawCal.dwell_click_enabled;
   const dwell_click_enabled = typeof dwellRaw === "boolean" ? dwellRaw : fallback.calibration.dwell_click_enabled;
 
+  const keyboardButtonRaw = rawCal.keyboard_button_enabled;
+  const keyboard_button_enabled = typeof keyboardButtonRaw === "boolean" ? keyboardButtonRaw : fallback.calibration.keyboard_button_enabled;
+
+  const voiceButtonRaw = rawCal.voice_button_enabled;
+  const voice_button_enabled = typeof voiceButtonRaw === "boolean" ? voiceButtonRaw : fallback.calibration.voice_button_enabled;
+
   const calibration: CalibrationConfig = {
     sensitivity_x: clamped(rawCal, "sensitivity_x", fallback.calibration.sensitivity_x),
     sensitivity_y: clamped(rawCal, "sensitivity_y", fallback.calibration.sensitivity_y),
@@ -171,6 +181,8 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
     click_logging_enabled,
     dwell_click_enabled,
     dwell_time_s: clamped(rawCal, "dwell_time_s", fallback.calibration.dwell_time_s),
+    keyboard_button_enabled,
+    voice_button_enabled,
   };
 
   const rawGestures: Record<string, Record<string, unknown>> = {

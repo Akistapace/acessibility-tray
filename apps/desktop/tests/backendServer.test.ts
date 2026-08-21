@@ -92,6 +92,24 @@ describe("BackendServer.send", () => {
     expect(reloaded.action_buttons.x).toBe(120.0);
   });
 
+  it("save_config broadcasts the saved config so other windows learn of the change without restarting", async () => {
+    const file = path.join(tmpDir, "config.json");
+    configMod.saveConfig(file, configMod.defaultConfig());
+
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig(), configPath: file });
+    const messagePromise = waitForMessage(server, "config");
+
+    await server.send({
+      type: "save_config",
+      config: { calibration: { keyboard_button_enabled: false } },
+    });
+
+    const reloaded = configMod.loadConfig(file);
+    expect(await messagePromise).toEqual({ type: "config", config: configMod.configToDict(reloaded) });
+    expect(reloaded.calibration.keyboard_button_enabled).toBe(false);
+  });
+
   it("open_keyboard reports keyboard_result using the injected toggle", async () => {
     const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
     const server = new BackendServer({

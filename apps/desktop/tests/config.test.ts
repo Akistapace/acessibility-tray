@@ -95,6 +95,34 @@ describe("loadConfig", () => {
     expect(loaded.action_buttons.x).toBeNull();
     expect(loaded.action_buttons.y).toBeNull();
   });
+
+  it("defaults keyboard_button_enabled and voice_button_enabled to true", () => {
+    const cfg = configMod.defaultConfig();
+    expect(cfg.calibration.keyboard_button_enabled).toBe(true);
+    expect(cfg.calibration.voice_button_enabled).toBe(true);
+  });
+
+  it("round-trips explicit false for keyboard_button_enabled/voice_button_enabled", () => {
+    const original = configMod.defaultConfig();
+    original.calibration.keyboard_button_enabled = false;
+    original.calibration.voice_button_enabled = false;
+
+    const restored = configMod.configFromDict(configMod.configToDict(original));
+
+    expect(restored.calibration.keyboard_button_enabled).toBe(false);
+    expect(restored.calibration.voice_button_enabled).toBe(false);
+  });
+
+  it("falls back to default for a non-boolean keyboard_button_enabled/voice_button_enabled", () => {
+    const file = path.join(tmpDir, "config.json");
+    fs.writeFileSync(
+      file,
+      JSON.stringify({ calibration: { keyboard_button_enabled: "yes", voice_button_enabled: 1 } })
+    );
+    const cal = configMod.loadConfig(file).calibration;
+    expect(cal.keyboard_button_enabled).toBe(true);
+    expect(cal.voice_button_enabled).toBe(true);
+  });
 });
 
 describe("save/load round trip", () => {
