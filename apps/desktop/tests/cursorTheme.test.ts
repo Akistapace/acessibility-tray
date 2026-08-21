@@ -95,6 +95,41 @@ describe("applyCursor with a non-default size/mode", () => {
   });
 });
 
+describe("CursorBaseSize (Windows' own pointer-size scaling, applied alongside the .cur)", () => {
+  // Regression test: the .cur file's own declared width/height alone had no
+  // visible effect -- Windows scales every loaded cursor (including a
+  // custom per-role override) to this separate registry DWORD at render
+  // time, the same one Ease of Access's "Change pointer size" slider
+  // writes. Only exercises the write path (never readCursorBaseSize's
+  // registry read), matching this suite's existing koffi-mock boundary.
+  it("restores CursorBaseSize from the stash alongside the Arrow value, without throwing", async () => {
+    const { restoreCursor } = await import("../src/main/services/cursorTheme.service");
+    const tmpDir = makeTmpDir();
+    const stashPath = path.join(tmpDir, "original_arrow.json");
+    fs.writeFileSync(stashPath, JSON.stringify({ value: null, baseSize: 32 }), "utf-8");
+
+    expect(() => restoreCursor(tmpDir)).not.toThrow();
+
+    expect(fs.existsSync(stashPath)).toBe(false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // A stash file written before this fix has no `baseSize` key at all --
+  // restoring one of those must not throw, and must still fully succeed
+  // (delete the value rather than leave a stray CursorBaseSize behind).
+  it("treats a missing baseSize in an old-format stash as 'delete the value', not a failure", async () => {
+    const { restoreCursor } = await import("../src/main/services/cursorTheme.service");
+    const tmpDir = makeTmpDir();
+    const stashPath = path.join(tmpDir, "original_arrow.json");
+    fs.writeFileSync(stashPath, JSON.stringify({ value: null }), "utf-8");
+
+    expect(() => restoreCursor(tmpDir)).not.toThrow();
+
+    expect(fs.existsSync(stashPath)).toBe(false);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+});
+
 describe("restoreCursor with a prior stash", () => {
   it("deletes the stash file after restoring, without throwing", async () => {
     const { restoreCursor } = await import("../src/main/services/cursorTheme.service");

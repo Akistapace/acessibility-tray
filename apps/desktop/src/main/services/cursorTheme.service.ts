@@ -38,7 +38,15 @@ const RegCloseKey = advapi32.func("long RegCloseKey(void *hKey)");
 const HKEY_CURRENT_USER = koffi.as(0x80000001, "void *");
 const CURSORS_KEY = "Control Panel\\Cursors";
 const ARROW_VALUE = "Arrow";
+// Windows' own Ease of Access > Mouse pointer "Change pointer size" slider
+// persists as this DWORD, and the shell scales EVERY loaded cursor to it at
+// render time -- including a custom per-role override like ours. Writing a
+// differently-sized .cur file to the Arrow value alone has no visible size
+// effect until this is updated to match; Windows' own settings dialog
+// always writes both together for the same reason.
+const BASE_SIZE_VALUE = "CursorBaseSize";
 const REG_SZ = 1;
+const REG_DWORD = 4;
 const KEY_READ = 0x20019;
 const KEY_WRITE = 0x20006;
 const SPI_SETCURSORS = 0x0057;
@@ -78,6 +86,22 @@ function readArrowRegistryValue(): string | null {
   }
 }
 
+function readCursorBaseSize(): number | null {
+  const phkResult = [null];
+  const rc = RegCreateKeyExW(HKEY_CURRENT_USER, CURSORS_KEY, 0, null, 0, KEY_READ, null, phkResult, null);
+  if (rc !== 0) return null;
+  try {
+    const cbData = [4];
+    const buf = Buffer.alloc(4);
+    const type = [0];
+    const readRc = RegQueryValueExW(phkResult[0], BASE_SIZE_VALUE, null, type, buf, cbData);
+    if (readRc !== 0) return null;
+    return buf.readUInt32LE(0);
+  } finally {
+    RegCloseKey(phkResult[0]);
+  }
+}
+
 // ERROR_FILE_NOT_FOUND -- returned by RegDeleteValueW when the value is
 // already gone. Matches the Python reference's explicit
 // `except FileNotFoundError: pass`: deleting a value that doesn't exist is
@@ -101,17 +125,41 @@ function writeArrowRegistry(value: string | null): boolean {
   } finally {
     RegCloseKey(phkResult[0]);
   }
-  if (!ok) return false;
+  return ok;
+}
+
+function writeCursorBaseSize(value: number | null): boolean {
+  const phkResult = [null];
+  const rc = RegCreateKeyExW(HKEY_CURRENT_USER, CURSORS_KEY, 0, null, 0, KEY_WRITE, null, phkResult, null);
+  if (rc !== 0) return false;
+  let ok = true;
+  try {
+    if (value === null) {
+      const deleteRc = RegDeleteValueW(phkResult[0], BASE_SIZE_VALUE);
+      ok = deleteRc === 0 || deleteRc === ERROR_FILE_NOT_FOUND;
+    } else {
+      const buf = Buffer.alloc(4);
+      buf.writeUInt32LE(value, 0);
+      const setRc = RegSetValueExW(phkResult[0], BASE_SIZE_VALUE, 0, REG_DWORD, buf, buf.length);
+      ok = setRc === 0;
+    }
+  } finally {
+    RegCloseKey(phkResult[0]);
+  }
+  return ok;
+}
+
+function broadcastCursorChange(): void {
   SystemParametersInfoW(SPI_SETCURSORS, 0, null, SPIF_SENDCHANGE);
-  return true;
 }
 
 function stashOriginalIfNeeded(cursorDir: string): void {
   const stashPath = path.join(cursorDir, STASH_FILENAME);
   if (fs.existsSync(stashPath)) return;
   const value = readArrowRegistryValue();
+  const baseSize = readCursorBaseSize();
   fs.mkdirSync(cursorDir, { recursive: true });
-  fs.writeFileSync(stashPath, JSON.stringify({ value }), "utf-8");
+  fs.writeFileSync(stashPath, JSON.stringify({ value, baseSize }), "utf-8");
 }
 
 export function applyCursor(sizePx: number, mode: string, customColor: string, cursorDir: string = defaultCursorDir()): void {
@@ -134,7 +182,9 @@ export function applyCursor(sizePx: number, mode: string, customColor: string, c
     fs.mkdirSync(cursorDir, { recursive: true });
     const curPath = path.join(cursorDir, CUR_FILENAME);
     fs.writeFileSync(curPath, curBytes);
-    writeArrowRegistry(curPath);
+    const arrowOk = writeArrowRegistry(curPath);
+    const baseSizeOk = writeCursorBaseSize(sizePx);
+    if (arrowOk || baseSizeOk) broadcastCursorChange();
   } catch (exc) {
     console.error(`facemesh-mouse: cursor theme apply failed (${exc})`);
   }
@@ -145,7 +195,10 @@ export function restoreCursor(cursorDir: string = defaultCursorDir()): void {
   if (!fs.existsSync(stashPath)) return;
   try {
     const stash = JSON.parse(fs.readFileSync(stashPath, "utf-8"));
-    if (writeArrowRegistry(stash.value ?? null)) {
+    const arrowOk = writeArrowRegistry(stash.value ?? null);
+    const baseSizeOk = writeCursorBaseSize(stash.baseSize ?? null);
+    if (arrowOk || baseSizeOk) broadcastCursorChange();
+    if (arrowOk && baseSizeOk) {
       fs.unlinkSync(stashPath);
     } else {
       // Registry write-back failed -- leave the stash in place so a later
