@@ -6,11 +6,12 @@ canvas.height = window.innerHeight;
 const ctx = canvas.getContext("2d")!;
 const tooltip = document.getElementById("tooltip") as HTMLDivElement;
 
-// Incoming x/y coordinates are absolute virtual-desktop pixels (from
-// pynput on the Python side). This window's canvas origin (0, 0)
-// corresponds to the window's own screen position -- (window.screenX,
-// window.screenY) -- which is (minX, minY) of the display union computed
-// in overlayWindow.ts, not (0, 0). Translate before drawing.
+// Incoming x/y coordinates are DIP/logical virtual-desktop pixels (main
+// process converts nut-js's physical-pixel position before sending, see
+// main/index.ts). This window's canvas origin (0, 0) corresponds to the
+// window's own screen position -- (window.screenX, window.screenY) -- which
+// is (minX, minY) of the display union computed in overlayWindow.ts, not
+// (0, 0). Translate before drawing.
 function toLocal(x: number, y: number): { x: number; y: number } {
   return { x: x - window.screenX, y: y - window.screenY };
 }

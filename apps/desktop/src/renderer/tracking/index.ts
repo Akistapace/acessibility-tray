@@ -152,6 +152,25 @@ async function main(): Promise<void> {
   // never shown (show: false, permanently, by design), and Chromium
   // throttles rAF to ~1Hz or less for windows that are never shown.
   const FRAME_INTERVAL_MS = 33;
+  // Frame work (MediaPipe inference, optical flow) takes a variable amount
+  // of time each iteration. Scheduling the next call relative to "now" (as
+  // setTimeout(loop, FRAME_INTERVAL_MS) in `finally` would) lets that
+  // variance directly become cadence jitter -- cursor updates arriving at
+  // uneven intervals reads as choppy motion even when each individual delta
+  // is correct. Targeting a fixed nextFrameAt instead keeps the cadence
+  // steady across frames of differing cost.
+  const MAX_CATCHUP_MS = FRAME_INTERVAL_MS * 3;
+  let nextFrameAt = performance.now() + FRAME_INTERVAL_MS;
+
+  const scheduleNextFrame = () => {
+    nextFrameAt += FRAME_INTERVAL_MS;
+    const now = performance.now();
+    // A one-off stall (GC pause, OS scheduling hiccup, debugger break) must
+    // not be "made up for" with a burst of zero-delay frames -- resync to
+    // now instead of trying to catch up.
+    if (nextFrameAt < now - MAX_CATCHUP_MS) nextFrameAt = now + FRAME_INTERVAL_MS;
+    setTimeout(loop, Math.max(0, nextFrameAt - now));
+  };
 
   const loop = () => {
     // Without this guard a single bad frame (a throw from detectForVideo,
@@ -218,7 +237,7 @@ async function main(): Promise<void> {
       console.error(`facemesh-mouse: tracking frame failed (${exc})`);
       pointTracker.reset();
     } finally {
-      setTimeout(loop, FRAME_INTERVAL_MS);
+      scheduleNextFrame();
     }
   };
   setTimeout(loop, FRAME_INTERVAL_MS);

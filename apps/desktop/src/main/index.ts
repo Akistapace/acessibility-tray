@@ -1,4 +1,4 @@
-import { app, dialog, globalShortcut, Menu } from "electron";
+import { app, dialog, globalShortcut, Menu, screen } from "electron";
 import fs from "node:fs";
 import { BackendServer } from "./services/backendServer";
 import { TrackingEngine } from "./services/trackingEngine.service";
@@ -46,7 +46,16 @@ if (!gotLock) {
 
     engine = new TrackingEngine(config, mouseDriver, screenSize, (gesture, action, position) => {
       clickLog.record(gesture, action, position);
-      backend.emit("message", { type: "action", gesture, action, x: position[0], y: position[1] });
+      // The overlay window (click pulse) is an Electron BrowserWindow, positioned
+      // and drawn in DIP/logical pixels -- but `position` comes straight from
+      // nut-js, which reports physical pixels. On any scaled display those two
+      // spaces differ, so the pulse must be converted before it crosses into
+      // Electron/renderer territory (the cursor driver itself keeps using
+      // physical pixels throughout, see getScreenSize() above).
+      const scaleFactor = screen.getPrimaryDisplay().scaleFactor;
+      const x = position[0] / scaleFactor;
+      const y = position[1] / scaleFactor;
+      backend.emit("message", { type: "action", gesture, action, x, y });
     });
     backend = new BackendServer({
       engine,
