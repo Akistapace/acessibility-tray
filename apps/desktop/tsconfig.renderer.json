@@ -9,5 +9,5 @@
     "skipLibCheck": true,
     "lib": ["ES2022", "DOM"]
   },
-  "include": ["src/renderer/config", "src/renderer/buttons", "src/renderer/overlay", "src/renderer/tracking"]
+  "include": ["src/renderer/window.d.ts", "src/renderer/config", "src/renderer/buttons", "src/renderer/overlay", "src/renderer/tracking"]
 }
