@@ -24,7 +24,26 @@ export interface MouseDriver {
 }
 
 export class NutJsMouseDriver implements MouseDriver {
-  private nut = import("@nut-tree-fork/nut-js");
+  // nut-js defaults to a 100ms artificial delay before every click/press/
+  // release/scroll call, meant to humanize input for automation use cases.
+  // We fire actions from discrete gesture events, not simulated human input,
+  // and this delay was fully serialized with tracking-frame processing
+  // (main.onTrackingFrame drops any frame that arrives while one is still in
+  // flight), so every click/scroll stalled cursor movement for ~100ms.
+  private nut = import("@nut-tree-fork/nut-js").then((mod) => {
+    mod.mouse.config.autoDelayMs = 0;
+    return mod;
+  });
+
+  // nut-js's own screen size (backed by the same native libnut binding that
+  // setPosition/getPosition use) reports hardware pixel resolution, unlike
+  // Electron's screen module which reports DPI-scaled logical pixels. The
+  // cursor clamp bound must match setPosition's coordinate space, or the
+  // cursor can never reach the true edge on any display above 100% scaling.
+  async getScreenSize(): Promise<[number, number]> {
+    const { screen } = await this.nut;
+    return [await screen.width(), await screen.height()];
+  }
 
   async getPosition(): Promise<[number, number]> {
     const { mouse } = await this.nut;

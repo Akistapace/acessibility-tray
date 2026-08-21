@@ -1,4 +1,4 @@
-import { app, dialog, globalShortcut, Menu, screen } from "electron";
+import { app, dialog, globalShortcut, Menu } from "electron";
 import fs from "node:fs";
 import { BackendServer } from "./services/backendServer";
 import { TrackingEngine } from "./services/trackingEngine.service";
@@ -38,12 +38,13 @@ if (!gotLock) {
     showConfigWindow();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     const config = loadConfig("config.json");
     applyCursor(config.cursor.size_px, config.cursor.mode, config.cursor.custom_color);
-    const { width, height } = screen.getPrimaryDisplay().size;
+    const mouseDriver = new NutJsMouseDriver();
+    const screenSize = await mouseDriver.getScreenSize();
 
-    engine = new TrackingEngine(config, new NutJsMouseDriver(), [width, height], (gesture, action, position) => {
+    engine = new TrackingEngine(config, mouseDriver, screenSize, (gesture, action, position) => {
       clickLog.record(gesture, action, position);
       backend.emit("message", { type: "action", gesture, action, x: position[0], y: position[1] });
     });
