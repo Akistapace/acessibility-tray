@@ -14,6 +14,7 @@ interface AppConfigJson {
   calibration: Record<string, number | boolean>;
   gestures: Record<string, { action: string; threshold: number; cooldown_ms: number; hold_ms: number }>;
   action_buttons: { x: number | null; y: number | null };
+  cursor: { size_px: number; mode: string; custom_color: string };
 }
 
 let currentConfig: AppConfigJson = {
@@ -31,6 +32,7 @@ let currentConfig: AppConfigJson = {
   },
   gestures: {},
   action_buttons: { x: null, y: null },
+  cursor: { size_px: 32, mode: "default", custom_color: "#000000" },
 };
 
 let lastStatus = { control_enabled: false, paused: false, no_face: false, yielded: false };
@@ -79,6 +81,9 @@ function applyConfigToForm(): void {
     if (el.type === "checkbox") el.checked = Boolean(value);
     else el.value = String(value);
   }
+  (document.getElementById("cursor_size_px") as HTMLInputElement).value = String(currentConfig.cursor.size_px);
+  (document.getElementById("cursor_mode") as HTMLSelectElement).value = currentConfig.cursor.mode;
+  (document.getElementById("cursor_custom_color") as HTMLInputElement).value = currentConfig.cursor.custom_color;
   renderGestureRows();
 }
 
@@ -99,6 +104,11 @@ function readFormIntoConfig(): void {
       currentConfig.gestures[name].cooldown_ms = Number(cooldownEl.value);
     }
   }
+  currentConfig.cursor = {
+    size_px: Number((document.getElementById("cursor_size_px") as HTMLInputElement).value),
+    mode: (document.getElementById("cursor_mode") as HTMLSelectElement).value,
+    custom_color: (document.getElementById("cursor_custom_color") as HTMLInputElement).value,
+  };
 }
 
 // This window never owns action_buttons: the floating buttons window
@@ -135,6 +145,22 @@ saveButton.addEventListener("click", () => {
 document.getElementById("reset-position-button")?.addEventListener("click", () => {
   window.backend.send({ type: "config:reset-position" });
 });
+
+// Debounced so dragging the size slider or picking a color doesn't flood
+// the backend with set_cursor_theme commands (each one regenerates and
+// re-applies the real Windows cursor, which would flicker if sent on every
+// "input" event of a drag).
+let cursorApplyTimer: ReturnType<typeof setTimeout> | null = null;
+function scheduleCursorApply(): void {
+  if (cursorApplyTimer) clearTimeout(cursorApplyTimer);
+  cursorApplyTimer = setTimeout(() => {
+    readFormIntoConfig();
+    window.backend.send({ type: "set_cursor_theme", ...currentConfig.cursor });
+  }, 150);
+}
+for (const id of ["cursor_size_px", "cursor_mode", "cursor_custom_color"]) {
+  document.getElementById(id)?.addEventListener("input", scheduleCursorApply);
+}
 
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => {
