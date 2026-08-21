@@ -1,13 +1,7 @@
-.venv/
-__pycache__/
-*.pyc
-.pytest_cache/
 config.json
 build/
 dist/
 release/
-*.spec
-!backend.spec
 .superpowers/
 clicks.log*
 .claude/worktrees/
