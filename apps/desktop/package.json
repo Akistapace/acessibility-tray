@@ -4,7 +4,7 @@
   "private": true,
   "main": "dist/main/index.js",
   "scripts": {
-    "build": "tsc -p tsconfig.json && node scripts/buildRenderer.mjs && node scripts/copyStaticAssets.mjs",
+    "build": "tsc -p tsconfig.json && tsc --noEmit -p tsconfig.renderer.json && node scripts/buildRenderer.mjs && node scripts/copyStaticAssets.mjs",
     "dev": "pnpm run build && electron .",
     "test": "vitest run",
     "dist": "pnpm run build && electron-builder --config electron-builder.yml"
@@ -14,6 +14,7 @@
     "@types/node": "^22.10.0",
     "electron": "^33.2.0",
     "electron-builder": "^25.1.8",
+    "esbuild": "^0.28.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"
   },

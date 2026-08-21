@@ -5,6 +5,7 @@ import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 // comment and task-15-report.md for why this can't be touched synchronously
 // at module scope), so it's awaited once below, inside main().
 import cvReadyPromise from "@techstark/opencv-js";
+import type { Mat as CvMat } from "@techstark/opencv-js";
 import { computeFaceMetrics, EYE_OUTER_A, EYE_OUTER_B, type Point } from "./faceMetrics";
 import { PointTracker } from "./pointTracker";
 
@@ -117,50 +118,81 @@ async function main(): Promise<void> {
   const cv = await cvReadyPromise;
   const pointTracker = new PointTracker(cv);
 
+  // ~30fps, matching engine.py's FRAME_INTERVAL_S = 1/30. A self-scheduling
+  // setTimeout is used instead of requestAnimationFrame: this window is
+  // never shown (show: false, permanently, by design), and Chromium
+  // throttles rAF to ~1Hz or less for windows that are never shown.
+  const FRAME_INTERVAL_MS = 33;
+
   const loop = () => {
-    // Mirrors the frame once, up front -- landmarks (Task 14), optical
-    // flow (Task 15), and the preview overlay (Task 16) all read from this
-    // same mirrored canvas, matching tracker.py's cv2.flip(frame, 1) being
-    // applied before every downstream consumer touches the frame.
-    workCtx.save();
-    workCtx.translate(WORK_WIDTH, 0);
-    workCtx.scale(-1, 1);
-    workCtx.drawImage(video, 0, 0, WORK_WIDTH, WORK_HEIGHT);
-    workCtx.restore();
+    // Without this guard a single bad frame (a throw from detectForVideo,
+    // cv.imread, cvtColor, calcOpticalFlowPyrLK, toDataURL, etc.) would kill
+    // the loop for the rest of the session -- the reschedule below must run
+    // in `finally` no matter what throws above it. Mirrors engine.py's _run
+    // guard: "the tray icon and window survive, the cursor just silently
+    // stops forever" otherwise.
+    try {
+      // Mirrors the frame once, up front -- landmarks (Task 14), optical
+      // flow (Task 15), and the preview overlay (Task 16) all read from this
+      // same mirrored canvas, matching tracker.py's cv2.flip(frame, 1) being
+      // applied before every downstream consumer touches the frame.
+      workCtx.save();
+      workCtx.translate(WORK_WIDTH, 0);
+      workCtx.scale(-1, 1);
+      workCtx.drawImage(video, 0, 0, WORK_WIDTH, WORK_HEIGHT);
+      workCtx.restore();
 
-    const result = faceLandmarker.detectForVideo(workCanvas, performance.now());
-    const rawLandmarks = result.faceLandmarks[0];
-    const metrics = rawLandmarks
-      ? computeFaceMetrics(rawLandmarks.map((p): Point => [p.x, p.y]))
-      : null;
+      const result = faceLandmarker.detectForVideo(workCanvas, performance.now());
+      const rawLandmarks = result.faceLandmarks[0];
+      const metrics = rawLandmarks
+        ? computeFaceMetrics(rawLandmarks.map((p): Point => [p.x, p.y]))
+        : null;
 
-    let movement: [number, number] = [0, 0];
-    if (metrics) {
-      const src = cv.imread(workCanvas);
-      const gray = new cv.Mat();
-      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
-      src.delete();
-      const anchor: Point = [metrics.noseX * WORK_WIDTH, metrics.noseY * WORK_HEIGHT];
-      const headSize = headSizePx(metrics.landmarks, WORK_WIDTH, WORK_HEIGHT);
-      const candidates = SEED_LANDMARKS.filter((i) => i < metrics.landmarks.length).map(
-        (i): Point => [metrics.landmarks[i][0] * WORK_WIDTH, metrics.landmarks[i][1] * WORK_HEIGHT]
-      );
-      pointTracker.update(gray, anchor, headSize, candidates);
-      movement = pointTracker.getMovement();
-      gray.delete();
-    } else {
+      let movement: [number, number] = [0, 0];
+      if (metrics) {
+        // Declared outside the try so the finally below can safely delete
+        // whichever of the two actually got allocated, even if the second
+        // `new cv.Mat()` itself throws before assignment.
+        let src: CvMat | null = null;
+        let gray: CvMat | null = null;
+        try {
+          src = cv.imread(workCanvas);
+          gray = new cv.Mat();
+          cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+          const anchor: Point = [metrics.noseX * WORK_WIDTH, metrics.noseY * WORK_HEIGHT];
+          const headSize = headSizePx(metrics.landmarks, WORK_WIDTH, WORK_HEIGHT);
+          const candidates = SEED_LANDMARKS.filter((i) => i < metrics.landmarks.length).map(
+            (i): Point => [metrics.landmarks[i][0] * WORK_WIDTH, metrics.landmarks[i][1] * WORK_HEIGHT]
+          );
+          pointTracker.update(gray, anchor, headSize, candidates);
+          movement = pointTracker.getMovement();
+        } finally {
+          src?.delete();
+          gray?.delete();
+        }
+      } else {
+        pointTracker.reset();
+      }
+
+      // Landmarks never cross IPC to Main -- Main doesn't read them, and
+      // sending the full 468-478-point array every frame is a needless
+      // privacy/perf cost. The preview overlay above already consumed
+      // `metrics.landmarks` renderer-side before this strip.
+      const wireMetrics = metrics ? { ...metrics, landmarks: [] } : null;
+
+      window.tracking.sendFrame({
+        metrics: wireMetrics,
+        movement,
+        previewJpegBase64: previewEnabled ? renderPreviewJpeg(metrics) : null,
+      });
+    } catch (exc) {
+      console.error(`facemesh-mouse: tracking frame failed (${exc})`);
       pointTracker.reset();
+    } finally {
+      setTimeout(loop, FRAME_INTERVAL_MS);
     }
-
-    window.tracking.sendFrame({
-      metrics,
-      movement,
-      previewJpegBase64: previewEnabled ? renderPreviewJpeg(metrics) : null,
-    });
-
-    requestAnimationFrame(loop);
   };
-  requestAnimationFrame(loop);
+  setTimeout(loop, FRAME_INTERVAL_MS);
 }
 
 void main();

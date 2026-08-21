@@ -26,6 +26,7 @@ function readSavedButtonsPosition(): { x: number | null; y: number | null } {
 Menu.setApplicationMenu(null);
 
 export let backend: BackendServer;
+let engine: TrackingEngine;
 let quitting = false;
 
 const gotLock = app.requestSingleInstanceLock();
@@ -40,7 +41,7 @@ if (!gotLock) {
     const config = loadConfig("config.json");
     const { width, height } = screen.getPrimaryDisplay().size;
 
-    const engine = new TrackingEngine(config, new NutJsMouseDriver(), [width, height], (gesture, action, position) => {
+    engine = new TrackingEngine(config, new NutJsMouseDriver(), [width, height], (gesture, action, position) => {
       clickLog.record(gesture, action, position);
       backend.emit("message", { type: "action", gesture, action, x: position[0], y: position[1] });
     });
@@ -87,6 +88,11 @@ app.on("before-quit", () => {
   quitting = true;
   backend?.send({ type: "stop" });
   backend?.stop();
+  // Fire-and-forget: releases any held mouse-button drag so quitting
+  // mid-drag doesn't leave the physical button held down system-wide.
+  // Mirrors Python's Engine.stop() call in main()'s finally block. Not
+  // awaited -- quitting must not block indefinitely on this.
+  void engine?.stop();
 });
 
 app.on("will-quit", () => {

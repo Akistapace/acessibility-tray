@@ -30,6 +30,7 @@ export class BackendServer extends EventEmitter {
   private readonly toggleTouchKeyboardImpl: () => Promise<boolean>;
   private readonly toggleVoiceTypingImpl: () => Promise<void>;
   private frameSeq = 0;
+  private frameInFlight = false;
   private lastStatusJson: string | null = null;
   private statusTimer: ReturnType<typeof setInterval> | null = null;
   private previewListeners: Array<(enabled: boolean) => void> = [];
@@ -71,25 +72,37 @@ export class BackendServer extends EventEmitter {
   }
 
   async onTrackingFrame(frame: TrackingFrame): Promise<void> {
-    await this.engine.onFrame(frame);
-    // One malformed frame's preview/progress encoding must never take down
-    // whatever loop is feeding us frames -- mirrors backend.py's
-    // _frame_loop try/except around _encode_frame + send.
+    // Guards against overlapping in-flight frames: the renderer fires
+    // tracking:frame IPC messages with no acknowledgement, and
+    // MouseController.moveCursor's awaited getPosition()/setPosition() pair
+    // could otherwise interleave across two frames and spuriously trigger a
+    // control yield. Drop the frame rather than queueing it -- don't process
+    // frames faster than they can be handled.
+    if (this.frameInFlight) return;
+    this.frameInFlight = true;
     try {
-      if (this.previewEnabled && frame.previewJpegBase64) {
-        const gesture_progress: Record<string, number> = {};
-        for (const [name, gestureCfg] of Object.entries(this.config.gestures)) {
-          gesture_progress[name] = frame.metrics ? triggerProgress(name, frame.metrics, gestureCfg.threshold) : 0.0;
+      await this.engine.onFrame(frame);
+      // One malformed frame's preview/progress encoding must never take down
+      // whatever loop is feeding us frames -- mirrors backend.py's
+      // _frame_loop try/except around _encode_frame + send.
+      try {
+        if (this.previewEnabled && frame.previewJpegBase64) {
+          const gesture_progress: Record<string, number> = {};
+          for (const [name, gestureCfg] of Object.entries(this.config.gestures)) {
+            gesture_progress[name] = frame.metrics ? triggerProgress(name, frame.metrics, gestureCfg.threshold) : 0.0;
+          }
+          this.emit("message", {
+            type: "frame",
+            jpeg_b64: frame.previewJpegBase64,
+            gesture_progress,
+            seq: this.frameSeq++,
+          });
         }
-        this.emit("message", {
-          type: "frame",
-          jpeg_b64: frame.previewJpegBase64,
-          gesture_progress,
-          seq: this.frameSeq++,
-        });
+      } catch (exc) {
+        console.error(`facemesh-mouse: frame push failed (${exc})`);
       }
-    } catch (exc) {
-      console.error(`facemesh-mouse: frame push failed (${exc})`);
+    } finally {
+      this.frameInFlight = false;
     }
   }
 

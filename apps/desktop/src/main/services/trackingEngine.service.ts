@@ -25,6 +25,13 @@ export class TrackingEngine {
     return this.mouseController.yielded;
   }
 
+  // Mirrors Python's Engine.stop(), called from main()'s finally block:
+  // releases any held mouse button (e.g. a left_drag in progress) so quitting
+  // mid-drag doesn't leave the physical button held down system-wide.
+  async stop(): Promise<void> {
+    await this.mouseController.releaseAllHolds();
+  }
+
   updateConfig(config: AppConfig): void {
     this.gestureEngine.updateConfig(config);
     this.mouseController.updateConfig(config);
