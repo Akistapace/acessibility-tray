@@ -78,21 +78,32 @@ function readArrowRegistryValue(): string | null {
   }
 }
 
-function writeArrowRegistry(value: string | null): void {
+// ERROR_FILE_NOT_FOUND -- returned by RegDeleteValueW when the value is
+// already gone. Matches the Python reference's explicit
+// `except FileNotFoundError: pass`: deleting a value that doesn't exist is
+// not a failure.
+const ERROR_FILE_NOT_FOUND = 2;
+
+function writeArrowRegistry(value: string | null): boolean {
   const phkResult = [null];
   const rc = RegCreateKeyExW(HKEY_CURRENT_USER, CURSORS_KEY, 0, null, 0, KEY_WRITE, null, phkResult, null);
-  if (rc !== 0) return;
+  if (rc !== 0) return false;
+  let ok = true;
   try {
     if (value === null) {
-      RegDeleteValueW(phkResult[0], ARROW_VALUE);
+      const deleteRc = RegDeleteValueW(phkResult[0], ARROW_VALUE);
+      ok = deleteRc === 0 || deleteRc === ERROR_FILE_NOT_FOUND;
     } else {
       const buf = Buffer.from(value + "\0", "utf16le");
-      RegSetValueExW(phkResult[0], ARROW_VALUE, 0, REG_SZ, buf, buf.length);
+      const setRc = RegSetValueExW(phkResult[0], ARROW_VALUE, 0, REG_SZ, buf, buf.length);
+      ok = setRc === 0;
     }
   } finally {
     RegCloseKey(phkResult[0]);
   }
+  if (!ok) return false;
   SystemParametersInfoW(SPI_SETCURSORS, 0, null, SPIF_SENDCHANGE);
+  return true;
 }
 
 function stashOriginalIfNeeded(cursorDir: string): void {
@@ -134,8 +145,15 @@ export function restoreCursor(cursorDir: string = defaultCursorDir()): void {
   if (!fs.existsSync(stashPath)) return;
   try {
     const stash = JSON.parse(fs.readFileSync(stashPath, "utf-8"));
-    writeArrowRegistry(stash.value ?? null);
-    fs.unlinkSync(stashPath);
+    if (writeArrowRegistry(stash.value ?? null)) {
+      fs.unlinkSync(stashPath);
+    } else {
+      // Registry write-back failed -- leave the stash in place so a later
+      // restore attempt can retry, instead of permanently losing the
+      // user's original cursor (matches the Python reference: a raised
+      // OSError there propagates past stash_path.unlink(), skipping it).
+      console.error("facemesh-mouse: cursor theme restore failed (registry write-back failed, stash kept for retry)");
+    }
   } catch (exc) {
     console.error(`facemesh-mouse: cursor theme restore failed (${exc})`);
   }

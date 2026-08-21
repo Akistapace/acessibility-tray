@@ -193,4 +193,31 @@ describe("buildCurBytesMista", () => {
     expect(anySet).toBe(true);
     expect(allSet).toBe(false);
   });
+
+  it("catches a within-byte bit-order flip or a row-order flip in the 1bpp packing path", () => {
+    // Neither of the two tests above can catch a within-byte bit-order flip
+    // or a row-order flip in pack1bppRows -- both would still leave the AND
+    // mask all-1 and the XOR mask non-degenerate. This closes the same
+    // class of gap the 32bpp color path's BGRA-channel-order / bottom-up
+    // row-order tests above already cover, never closed on the 1bpp/mista
+    // side.
+    const sizePx = 32;
+    const bytes = buildCurBytesMista(sizePx);
+    const rowBytes = Math.ceil(sizePx / 32) * 4;
+    const bmiHeaderSize = 40;
+    const colorTableSize = 8;
+    const imageDataStart = 6 + 16;
+    const xorStart = imageDataStart + bmiHeaderSize + colorTableSize;
+
+    // at sizePx=32: (2,4) and (6,4) share the same byte in the same packed row --
+    // a within-byte bit-order flip breaks this pair. (2,4) and (2,20) sit in
+    // different packed rows whose silhouette membership differs -- a row-order
+    // flip breaks this pair. All four points independently re-derived against
+    // the arrow polygon (even-odd, pixel-center sampled), not against the
+    // module's own formula.
+    expect(realBitIsSet(bytes, xorStart, rowBytes, 32, 2, 4)).toBe(true); // interior
+    expect(realBitIsSet(bytes, xorStart, rowBytes, 32, 6, 4)).toBe(false); // same byte as (2,4)
+    expect(realBitIsSet(bytes, xorStart, rowBytes, 32, 2, 20)).toBe(false); // different row
+    expect(realBitIsSet(bytes, xorStart, rowBytes, 32, 10, 20)).toBe(true);
+  });
 });

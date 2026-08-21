@@ -37,6 +37,17 @@ let currentConfig: AppConfigJson = {
 
 let lastStatus = { control_enabled: false, paused: false, no_face: false, yielded: false };
 
+// The backend broadcasts a "config" message to EVERY window on every
+// save_config (added so an already-open buttons window learns about a live
+// keyboard/voice-toggle change) -- including one triggered by a totally
+// unrelated window, e.g. the floating buttons window persisting a drag
+// position. This window's own config form must only be repainted by a
+// "config" message that is a direct response to a get_config/save_config
+// request THIS window itself sent -- otherwise an unrelated save can wipe
+// out in-progress, unsaved edits (including a live-applied-but-unsaved
+// cursor theme) and desync the Extras tab from the actually-live cursor.
+let awaitingConfigResponse = false;
+
 const preview = document.getElementById("preview") as HTMLImageElement;
 const statusLabel = document.getElementById("status-label") as HTMLDivElement;
 const toggleButton = document.getElementById("toggle-button") as HTMLButtonElement;
@@ -139,6 +150,7 @@ toggleButton.addEventListener("click", () => {
 
 saveButton.addEventListener("click", () => {
   readFormIntoConfig();
+  awaitingConfigResponse = true;
   window.backend.send({ type: "save_config", config: configPayloadWithoutButtons() });
 });
 
@@ -194,10 +206,15 @@ window.backend.on("frame", (message) => {
 });
 
 window.backend.on("config", (message) => {
+  // Ignore any "config" broadcast this window didn't itself ask for -- see
+  // the awaitingConfigResponse comment above.
+  if (!awaitingConfigResponse) return;
+  awaitingConfigResponse = false;
   currentConfig = (message as { config: AppConfigJson }).config;
   applyConfigToForm();
 });
 
 applyConfigToForm();
 updateToggleButton();
+awaitingConfigResponse = true;
 window.backend.send({ type: "get_config" });

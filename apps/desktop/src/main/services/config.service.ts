@@ -1,5 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
+import { VALID_CURSOR_MODES } from "./cursorImage";
 
 export const VALID_ACTIONS = new Set([
   "none",
@@ -118,7 +119,6 @@ export interface GestureConfig {
 }
 
 export const CURSOR_SIZE_RANGE: [number, number] = [32, 96];
-export const VALID_CURSOR_MODES = new Set(["default", "white", "black", "custom", "mista"]);
 
 export interface CursorConfig {
   size_px: number;
