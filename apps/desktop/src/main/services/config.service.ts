@@ -117,10 +117,43 @@ export interface GestureConfig {
   hold_ms: number;
 }
 
+export const CURSOR_SIZE_RANGE: [number, number] = [32, 96];
+export const VALID_CURSOR_MODES = new Set(["default", "white", "black", "custom", "mista"]);
+
+export interface CursorConfig {
+  size_px: number;
+  mode: string;
+  custom_color: string;
+}
+
+function defaultCursor(): CursorConfig {
+  return { size_px: 32, mode: "default", custom_color: "#000000" };
+}
+
+function clampedCursorSize(rawCursor: Record<string, unknown>, fallback: number): number {
+  const [low, high] = CURSOR_SIZE_RANGE;
+  const raw = rawCursor.size_px;
+  const num = typeof raw === "number" || typeof raw === "string" ? Number(raw) : NaN;
+  const resolved = Number.isFinite(num) ? Math.trunc(num) : fallback;
+  return Math.max(low, Math.min(high, resolved));
+}
+
+// Exported (unlike the internal mergeGesture) because BackendServer's
+// set_cursor_theme handler calls this directly with a single command's
+// fields, not just from configFromDict's full-document parse -- both need
+// the exact same clamp/fallback rules.
+export function cursorFromDict(rawCursor: Record<string, unknown>): CursorConfig {
+  const fallback = defaultCursor();
+  const mode = typeof rawCursor.mode === "string" && VALID_CURSOR_MODES.has(rawCursor.mode) ? rawCursor.mode : fallback.mode;
+  const customColor = typeof rawCursor.custom_color === "string" ? rawCursor.custom_color : fallback.custom_color;
+  return { size_px: clampedCursorSize(rawCursor, fallback.size_px), mode, custom_color: customColor };
+}
+
 export interface AppConfig {
   calibration: CalibrationConfig;
   gestures: Record<string, GestureConfig>;
   action_buttons: ActionButtonsConfig;
+  cursor: CursorConfig;
 }
 
 export function defaultConfig(): AppConfig {
@@ -133,7 +166,7 @@ export function defaultConfig(): AppConfig {
       hold_ms: DEFAULT_HOLD_MS[name],
     };
   }
-  return { calibration: defaultCalibration(), gestures, action_buttons: { x: null, y: null } };
+  return { calibration: defaultCalibration(), gestures, action_buttons: { x: null, y: null }, cursor: defaultCursor() };
 }
 
 function mergeGesture(name: GestureName, raw: Record<string, unknown>): GestureConfig {
@@ -205,7 +238,9 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
     y: optionalFloat(rawButtons.y),
   };
 
-  return { calibration, gestures, action_buttons };
+  const cursor = cursorFromDict((raw.cursor as Record<string, unknown>) ?? {});
+
+  return { calibration, gestures, action_buttons, cursor };
 }
 
 export function loadConfig(filePath: string): AppConfig {

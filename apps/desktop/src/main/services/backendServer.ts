@@ -6,7 +6,12 @@
 // wireBackendRelay already expects.
 import { EventEmitter } from "node:events";
 import * as clickLog from "./clickLog.service";
-import { configFromDict, configToDict, GESTURE_NAMES, loadConfig, saveConfig, type AppConfig } from "./config.service";
+import { configFromDict, configToDict, cursorFromDict, GESTURE_NAMES, loadConfig, saveConfig, type AppConfig } from "./config.service";
+// Only applyCursor is used here -- it already internally delegates to
+// restoreCursor for the all-defaults case, so set_cursor_theme never needs
+// to call restoreCursor directly. restoreCursor is wired at the app-lifecycle
+// level instead (see index.ts's before-quit / camera-failure paths).
+import { applyCursor } from "./cursorTheme.service";
 import { triggerProgress } from "./gestures.service";
 import type { TrackingEngine } from "./trackingEngine.service";
 import type { TrackingFrame } from "@facemesh-mouse/shared";
@@ -138,6 +143,15 @@ export class BackendServer extends EventEmitter {
         case "resume":
           this.engine.paused = false;
           break;
+        case "set_cursor_theme": {
+          this.config.cursor = cursorFromDict({
+            size_px: command.size_px,
+            mode: command.mode,
+            custom_color: command.custom_color,
+          });
+          applyCursor(this.config.cursor.size_px, this.config.cursor.mode, this.config.cursor.custom_color);
+          break;
+        }
         case "update_config": {
           this.config = configFromDict((command.config as Record<string, unknown>) ?? {});
           this.engine.updateConfig(this.config);
@@ -154,6 +168,9 @@ export class BackendServer extends EventEmitter {
           }
           if (payload.action_buttons) {
             merged.action_buttons = { ...(onDiskDict.action_buttons as object), ...(payload.action_buttons as object) };
+          }
+          if (payload.cursor) {
+            merged.cursor = { ...(onDiskDict.cursor as object), ...(payload.cursor as object) };
           }
           const saved = configFromDict(merged);
           saveConfig(this.configPath, saved);

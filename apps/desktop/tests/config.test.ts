@@ -149,4 +149,59 @@ describe("save/load round trip", () => {
     expect(restored.calibration.sensitivity_x).toBe(0.04);
     expect(restored.action_buttons.x).toBe(12.0);
   });
+
+  it("round-trips cursor settings through configToDict/configFromDict", () => {
+    const original = configMod.defaultConfig();
+    original.cursor = { size_px: 64, mode: "custom", custom_color: "#ff00ff" };
+
+    const restored = configMod.configFromDict(configMod.configToDict(original));
+
+    expect(restored.cursor).toEqual({ size_px: 64, mode: "custom", custom_color: "#ff00ff" });
+  });
+});
+
+describe("cursorFromDict", () => {
+  it("defaults to size_px 32, mode default, custom_color #000000", () => {
+    const cursor = configMod.cursorFromDict({});
+    expect(cursor).toEqual({ size_px: 32, mode: "default", custom_color: "#000000" });
+  });
+
+  it("defaultConfig includes the default CursorConfig", () => {
+    expect(configMod.defaultConfig().cursor).toEqual({ size_px: 32, mode: "default", custom_color: "#000000" });
+  });
+
+  it("clamps size_px to [32, 96]", () => {
+    expect(configMod.cursorFromDict({ size_px: 10 }).size_px).toBe(32);
+    expect(configMod.cursorFromDict({ size_px: 500 }).size_px).toBe(96);
+    expect(configMod.cursorFromDict({ size_px: 64 }).size_px).toBe(64);
+  });
+
+  it("falls back to the default size_px for a non-numeric value", () => {
+    expect(configMod.cursorFromDict({ size_px: "huge" }).size_px).toBe(32);
+  });
+
+  it("falls back to mode default for an invalid mode", () => {
+    expect(configMod.cursorFromDict({ mode: "not_a_real_mode" }).mode).toBe("default");
+  });
+
+  it("accepts every valid mode", () => {
+    for (const mode of ["default", "white", "black", "custom", "mista"]) {
+      expect(configMod.cursorFromDict({ mode }).mode).toBe(mode);
+    }
+  });
+
+  it("round-trips custom_color as a string", () => {
+    expect(configMod.cursorFromDict({ custom_color: "#123abc" }).custom_color).toBe("#123abc");
+  });
+
+  it("falls back to the default custom_color for a non-string value", () => {
+    expect(configMod.cursorFromDict({ custom_color: 123 }).custom_color).toBe("#000000");
+  });
+
+  it("loadConfig merges a partial cursor payload with defaults", () => {
+    const file = path.join(tmpDir, "config.json");
+    fs.writeFileSync(file, JSON.stringify({ cursor: { mode: "white" } }));
+    const loaded = configMod.loadConfig(file);
+    expect(loaded.cursor).toEqual({ size_px: 32, mode: "white", custom_color: "#000000" });
+  });
 });

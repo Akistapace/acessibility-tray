@@ -1,4 +1,4 @@
-import { describe, expect, it, beforeEach, afterEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -6,6 +6,16 @@ import { BackendServer } from "../src/main/services/backendServer";
 import { TrackingEngine } from "../src/main/services/trackingEngine.service";
 import * as configMod from "../src/main/services/config.service";
 import type { MouseDriver } from "../src/main/services/mouseController.service";
+
+// Mock cursorTheme.service entirely -- set_cursor_theme's job is to update
+// backendServer.config.cursor and delegate to applyCursor with the resolved
+// values; it must never touch the real registry / SystemParametersInfoW in a
+// unit test. applyCursor's own registry/no-op behavior is covered by
+// cursorTheme.test.ts.
+const applyCursorMock = vi.fn();
+vi.mock("../src/main/services/cursorTheme.service", () => ({
+  applyCursor: (...args: unknown[]) => applyCursorMock(...args),
+}));
 
 class FakeMouseDriver implements MouseDriver {
   position: [number, number] = [500, 500];
@@ -28,6 +38,7 @@ function waitForMessage(server: BackendServer, type: string): Promise<Record<str
 let tmpDir: string;
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "facemesh-backend-"));
+  applyCursorMock.mockClear();
 });
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -105,6 +116,26 @@ describe("BackendServer.send", () => {
     expect(server.config.calibration.sensitivity_x).toBe(0.09);
   });
 
+  it("set_cursor_theme updates server.config.cursor and calls applyCursor with the resolved values", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+
+    await server.send({ type: "set_cursor_theme", size_px: 64, mode: "custom", custom_color: "#ff00ff" });
+
+    expect(server.config.cursor).toEqual({ size_px: 64, mode: "custom", custom_color: "#ff00ff" });
+    expect(applyCursorMock).toHaveBeenCalledWith(64, "custom", "#ff00ff");
+  });
+
+  it("set_cursor_theme clamps size_px and falls back an invalid mode, mirroring cursorFromDict", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+
+    await server.send({ type: "set_cursor_theme", size_px: 500, mode: "not_a_real_mode", custom_color: "#abcabc" });
+
+    expect(server.config.cursor).toEqual({ size_px: 96, mode: "default", custom_color: "#abcabc" });
+    expect(applyCursorMock).toHaveBeenCalledWith(96, "default", "#abcabc");
+  });
+
   it("save_config writes to disk and merges a partial payload onto the existing file", async () => {
     const file = path.join(tmpDir, "config.json");
     const seed = configMod.defaultConfig();
@@ -119,6 +150,21 @@ describe("BackendServer.send", () => {
     const reloaded = configMod.loadConfig(file);
     expect(reloaded.calibration.sensitivity_x).toBe(0.09);
     expect(reloaded.action_buttons.x).toBe(120.0);
+  });
+
+  it("save_config merges a partial cursor payload onto the existing file", async () => {
+    const file = path.join(tmpDir, "config.json");
+    const seed = configMod.defaultConfig();
+    seed.cursor = { size_px: 48, mode: "white", custom_color: "#111111" };
+    configMod.saveConfig(file, seed);
+
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig(), configPath: file });
+
+    await server.send({ type: "save_config", config: { cursor: { mode: "custom" } } });
+
+    const reloaded = configMod.loadConfig(file);
+    expect(reloaded.cursor).toEqual({ size_px: 48, mode: "custom", custom_color: "#111111" });
   });
 
   it("save_config broadcasts the saved config so other windows learn of the change without restarting", async () => {

@@ -4,6 +4,7 @@ import { BackendServer } from "./services/backendServer";
 import { TrackingEngine } from "./services/trackingEngine.service";
 import { NutJsMouseDriver } from "./services/mouseController.service";
 import { loadConfig } from "./services/config.service";
+import { applyCursor, restoreCursor } from "./services/cursorTheme.service";
 import { toggleTouchKeyboard } from "./services/win32.service";
 import * as clickLog from "./services/clickLog.service";
 import { toggleVoiceTyping } from "./services/keyboard.service";
@@ -39,6 +40,7 @@ if (!gotLock) {
 
   app.whenReady().then(() => {
     const config = loadConfig("config.json");
+    applyCursor(config.cursor.size_px, config.cursor.mode, config.cursor.custom_color);
     const { width, height } = screen.getPrimaryDisplay().size;
 
     engine = new TrackingEngine(config, new NutJsMouseDriver(), [width, height], (gesture, action, position) => {
@@ -62,6 +64,7 @@ if (!gotLock) {
         "Não foi possível acessar a webcam. Verifique se ela está conectada e se " +
           "a permissão de câmera do Windows está ativa."
       );
+      restoreCursor();
       app.quit();
     });
 
@@ -93,6 +96,7 @@ app.on("before-quit", () => {
   // Mirrors Python's Engine.stop() call in main()'s finally block. Not
   // awaited -- quitting must not block indefinitely on this.
   void engine?.stop();
+  restoreCursor();
 });
 
 app.on("will-quit", () => {
