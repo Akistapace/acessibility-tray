@@ -1,0 +1,12 @@
+appId: com.fernando.facemeshmouse
+productName: FaceMesh Mouse
+directories:
+  output: release
+files:
+  - dist/**/*
+win:
+  target: nsis
+  icon: assets/icon.ico
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true

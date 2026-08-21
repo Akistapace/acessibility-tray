@@ -12,3 +12,5 @@ release/
 clicks.log*
 .claude/worktrees/
 .worktrees/
+node_modules/
+package-lock.json
