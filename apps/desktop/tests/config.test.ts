@@ -205,3 +205,33 @@ describe("cursorFromDict", () => {
     expect(loaded.cursor).toEqual({ size_px: 32, mode: "white", custom_color: "#000000" });
   });
 });
+
+describe("custom_keyboard", () => {
+  it("defaults to centered/unset position and compact mode", () => {
+    const cfg = configMod.defaultConfig();
+    expect(cfg.custom_keyboard).toEqual({ x: null, y: null, compact: true });
+  });
+
+  it("drops unrecognized custom_keyboard position values to null", () => {
+    const file = path.join(tmpDir, "config.json");
+    fs.writeFileSync(file, JSON.stringify({ custom_keyboard: { x: "nope", y: null, compact: true } }));
+    const loaded = configMod.loadConfig(file);
+    expect(loaded.custom_keyboard.x).toBeNull();
+    expect(loaded.custom_keyboard.y).toBeNull();
+  });
+
+  it("falls back to compact=true for a non-boolean compact value", () => {
+    const file = path.join(tmpDir, "config.json");
+    fs.writeFileSync(file, JSON.stringify({ custom_keyboard: { compact: "nope" } }));
+    expect(configMod.loadConfig(file).custom_keyboard.compact).toBe(true);
+  });
+
+  it("round-trips through configToDict/configFromDict", () => {
+    const original = configMod.defaultConfig();
+    original.custom_keyboard = { x: 40, y: 500, compact: false };
+
+    const restored = configMod.configFromDict(configMod.configToDict(original));
+
+    expect(restored.custom_keyboard).toEqual({ x: 40, y: 500, compact: false });
+  });
+});
