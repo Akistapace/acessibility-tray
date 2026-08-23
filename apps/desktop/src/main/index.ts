@@ -5,7 +5,6 @@ import { TrackingEngine } from "./services/trackingEngine.service";
 import { NutJsMouseDriver } from "./services/mouseController.service";
 import { loadConfig } from "./services/config.service";
 import { applyCursor, restoreCursor } from "./services/cursorTheme.service";
-import { toggleTouchKeyboard } from "./services/win32.service";
 import * as clickLog from "./services/clickLog.service";
 import { toggleVoiceTyping } from "./services/keyboard.service";
 import { wireIpc } from "./ipc";
@@ -13,6 +12,7 @@ import { createTray } from "./services/tray.service";
 import { createConfigWindow, showConfigWindow } from "./windows/configWindow";
 import { createOverlayWindow } from "./windows/overlayWindow";
 import { createButtonsWindow, resetButtonsPosition } from "./windows/buttonsWindow";
+import { createKeyboardWindow, showKeyboardWindow } from "./windows/keyboardWindow";
 import { createTrackingWindow } from "./windows/trackingWindow";
 
 function readSavedButtonsPosition(): { x: number | null; y: number | null } {
@@ -61,7 +61,7 @@ if (!gotLock) {
       engine,
       config,
       configPath: "config.json",
-      toggleTouchKeyboard,
+      openKeyboard: () => showKeyboardWindow(),
       toggleVoiceTyping,
     });
 
@@ -84,6 +84,7 @@ if (!gotLock) {
     createOverlayWindow();
     const saved = readSavedButtonsPosition();
     createButtonsWindow(backend, saved.x, saved.y);
+    createKeyboardWindow(backend, config.custom_keyboard.x, config.custom_keyboard.y);
     createTray(backend);
     createTrackingWindow(backend);
 
