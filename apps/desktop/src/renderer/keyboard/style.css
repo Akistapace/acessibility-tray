@@ -1,0 +1,73 @@
+html, body {
+  margin: 0;
+  width: 100vw;
+  height: 100vh;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Segoe UI", sans-serif;
+}
+
+#title-strip {
+  display: flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 6px;
+  gap: 6px;
+  box-sizing: border-box;
+}
+
+#drag-handle {
+  flex: 1;
+  height: 16px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  cursor: grab;
+}
+#drag-handle:active { cursor: grabbing; }
+
+#mode-toggle, #close-button {
+  width: 22px;
+  height: 22px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #fff;
+  cursor: pointer;
+  font-size: 11px;
+  line-height: 22px;
+  padding: 0;
+}
+#close-button { background: rgba(255, 80, 80, 0.35); }
+
+/* .key width + #keys gap must match keyboardPosition.ts's KEY_SIZE/KEY_GAP
+   -- there's no shared constant between main and renderer CSS here. */
+#keys {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 12px 12px;
+  box-sizing: border-box;
+}
+
+.row {
+  display: flex;
+  gap: 6px;
+  justify-content: center;
+}
+
+.key {
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 6px;
+  background: #2d2d2d;
+  color: #fff;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 0;
+}
+.key:active { background: #4da3ff; }
+
+.shift-key.active { background: #4da3ff; }
+.space-key { flex: 1; }

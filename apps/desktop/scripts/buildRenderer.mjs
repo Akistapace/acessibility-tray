@@ -9,7 +9,7 @@ function hasTypeScriptFiles(dir) {
   return false;
 }
 
-const RENDERER_ENTRIES = ["buttons", "config", "overlay", "tracking"];
+const RENDERER_ENTRIES = ["buttons", "config", "keyboard", "overlay", "tracking"];
 
 if (hasTypeScriptFiles("src/renderer")) {
   const entryPoints = RENDERER_ENTRIES.filter((name) => existsSync(`src/renderer/${name}/index.ts`)).map(
