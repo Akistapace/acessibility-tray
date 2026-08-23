@@ -167,6 +167,21 @@ describe("BackendServer.send", () => {
     expect(reloaded.cursor).toEqual({ size_px: 48, mode: "custom", custom_color: "#111111" });
   });
 
+  it("save_config merges a partial custom_keyboard payload onto the existing file", async () => {
+    const file = path.join(tmpDir, "config.json");
+    const seed = configMod.defaultConfig();
+    seed.custom_keyboard = { x: 10, y: 20, compact: false };
+    configMod.saveConfig(file, seed);
+
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig(), configPath: file });
+
+    await server.send({ type: "save_config", config: { custom_keyboard: { compact: true } } });
+
+    const reloaded = configMod.loadConfig(file);
+    expect(reloaded.custom_keyboard).toEqual({ x: 10, y: 20, compact: true });
+  });
+
   it("save_config broadcasts the saved config so other windows learn of the change without restarting", async () => {
     const file = path.join(tmpDir, "config.json");
     configMod.saveConfig(file, configMod.defaultConfig());
@@ -185,17 +200,29 @@ describe("BackendServer.send", () => {
     expect(reloaded.calibration.keyboard_button_enabled).toBe(false);
   });
 
-  it("open_keyboard reports keyboard_result using the injected toggle", async () => {
+  it("open_keyboard calls the injected openKeyboard and always reports opened:true", async () => {
+    let called = false;
     const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
     const server = new BackendServer({
       engine, config: configMod.defaultConfig(),
-      toggleTouchKeyboard: async () => true,
+      openKeyboard: () => { called = true; },
     });
     const messagePromise = waitForMessage(server, "keyboard_result");
 
     await server.send({ type: "open_keyboard", x: 100, y: 200 });
 
     expect(await messagePromise).toEqual({ type: "keyboard_result", opened: true, x: 100, y: 200 });
+    expect(called).toBe(true);
+  });
+
+  it("open_keyboard still reports opened:true with no openKeyboard dep injected", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+    const messagePromise = waitForMessage(server, "keyboard_result");
+
+    await server.send({ type: "open_keyboard", x: 1, y: 2 });
+
+    expect(await messagePromise).toEqual({ type: "keyboard_result", opened: true, x: 1, y: 2 });
   });
 
   it("open_voice_typing calls the injected toggle", async () => {
