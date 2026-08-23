@@ -5,7 +5,7 @@ const pressKeyMock = vi.fn();
 const releaseKeyMock = vi.fn();
 
 vi.mock("@nut-tree-fork/nut-js", () => ({
-  keyboard: { type: typeMock, pressKey: pressKeyMock, releaseKey: releaseKeyMock },
+  keyboard: { type: typeMock, pressKey: pressKeyMock, releaseKey: releaseKeyMock, config: {} },
   Key: { Backspace: "Backspace", Return: "Return" },
 }));
 

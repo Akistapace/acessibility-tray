@@ -47,8 +47,9 @@ function render(): void {
     },
     "shift-key"
   );
+  shiftKey.classList.toggle("active", shiftActive);
   const spaceKey = makeKey(
-    " ",
+    "␣",
     () => window.backend.send({ type: "keyboard:type", text: " " }),
     "space-key"
   );

@@ -1,10 +1,11 @@
 // Key size/gap here must match renderer/keyboard/style.css's .key width and
 // #keys gap -- there's no shared build-time constant between main and
-// renderer CSS, so keep these two in sync by hand.
+// renderer CSS, so keep these two in sync by hand. HANDLE_HEIGHT must
+// likewise match that file's #title-strip height.
 export const KEY_SIZE = 44;
 export const KEY_GAP = 6;
 export const PADDING = 12;
-export const HANDLE_HEIGHT = 26;
+export const HANDLE_HEIGHT = 40;
 export const MARGIN = 24;
 
 // Widest row is the 12-key accent row (Á Ã Â À É Ê Í Ó Ô Õ Ú Ç), wider than

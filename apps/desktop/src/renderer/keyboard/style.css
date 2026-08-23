@@ -11,7 +11,7 @@ html, body {
 #title-strip {
   display: flex;
   align-items: center;
-  height: 26px;
+  height: 40px;
   padding: 0 6px;
   gap: 6px;
   box-sizing: border-box;
@@ -27,15 +27,15 @@ html, body {
 #drag-handle:active { cursor: grabbing; }
 
 #mode-toggle, #close-button {
-  width: 22px;
-  height: 22px;
+  width: 36px;
+  height: 36px;
   border: none;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.16);
   color: #fff;
   cursor: pointer;
-  font-size: 11px;
-  line-height: 22px;
+  font-size: 14px;
+  line-height: 36px;
   padding: 0;
 }
 #close-button { background: rgba(255, 80, 80, 0.35); }
