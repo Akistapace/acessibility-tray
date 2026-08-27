@@ -197,12 +197,20 @@ function applyLiveSystemCursor(curPath: string): void {
 }
 
 export function applyCursor(sizePx: number, mode: string, customColor: string, cursorDir: string = defaultCursorDir()): void {
-  if (sizePx === DEFAULT_SIZE_PX && mode === "default") {
-    // Nothing was ever applied -> restoreCursor() is a pure no-op (no
-    // registry read/write) because no stash file exists, so the
-    // untouched-user guarantee is unchanged. Something WAS applied -> this
-    // is an explicit revert to the Windows default, so put the original back.
-    restoreCursor(cursorDir);
+  // Only a genuine no-op when nothing has ever been customized this
+  // session (no stash yet) -- writing/broadcasting 32px black here would
+  // be wasted work with no visible effect, so skip it, same as before.
+  //
+  // Once something HAS been applied, sliding back down to 32/"default"
+  // must NOT delegate to restoreCursor(): that restores whatever the
+  // user's cursor looked like BEFORE this app ever touched it, which for
+  // this app's own target audience is very often already a larger,
+  // accessibility-configured size, not literally 32px. restoreCursor() is
+  // reserved for the app's actual lifecycle cleanup points (quit, camera
+  // error, wired in main/index.ts) -- while the app keeps running, 32px/
+  // "default" is applied like any other slider value below, and the
+  // stash is left alone so that later cleanup can still do its real job.
+  if (sizePx === DEFAULT_SIZE_PX && mode === "default" && !fs.existsSync(path.join(cursorDir, STASH_FILENAME))) {
     return;
   }
   try {

@@ -49,6 +49,36 @@ describe("applyCursor no-op guard", () => {
     expect(fs.existsSync(path.join(tmpDir, "arrow.cur"))).toBe(false);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
+
+  // Regression test: dragging the size slider back down to 32/"default"
+  // after having applied some other size used to call restoreCursor(),
+  // which puts back whatever the user's cursor looked like BEFORE this app
+  // ever touched it -- not this app's own 32px black default. For a user
+  // who already had a larger system cursor configured before installing
+  // this app (common for this app's own target audience), that meant the
+  // slider's minimum silently restored their old large size instead of
+  // shrinking to 32, and consumed (deleted) the stash file the running
+  // session still needs for its real cleanup point (quit / camera error).
+  it("applies a real 32px default cursor instead of restoring the pre-app original when a stash already exists", async () => {
+    const { applyCursor } = await import("../src/main/services/cursorTheme.service");
+    const tmpDir = makeTmpDir();
+    const stashPath = path.join(tmpDir, "original_arrow.json");
+    const stashContent = JSON.stringify({ value: null, baseSize: 64 });
+    fs.writeFileSync(stashPath, stashContent, "utf-8");
+
+    applyCursor(32, "default", "#000000", tmpDir);
+
+    // The stash is this session's only record of the true pre-app state --
+    // it must survive untouched until an actual app-lifecycle restore
+    // (quit / camera error), not get consumed by an ordinary slider value.
+    expect(fs.readFileSync(stashPath, "utf-8")).toBe(stashContent);
+    // A real 32px cursor file must have been written, exactly like any
+    // other slider value would produce.
+    const curPath = path.join(tmpDir, "arrow.cur");
+    expect(fs.existsSync(curPath)).toBe(true);
+    expect(fs.statSync(curPath).size).toBeGreaterThan(0);
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
 });
 
 describe("restoreCursor without a prior apply", () => {
