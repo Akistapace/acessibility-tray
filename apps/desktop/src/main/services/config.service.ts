@@ -105,6 +105,12 @@ export interface ActionButtonsConfig {
   y: number | null;
 }
 
+export interface CustomKeyboardConfig {
+  x: number | null;
+  y: number | null;
+  compact: boolean;
+}
+
 function optionalFloat(value: unknown): number | null {
   if (value === null || value === undefined) return null;
   const num = Number(value);
@@ -154,6 +160,7 @@ export interface AppConfig {
   gestures: Record<string, GestureConfig>;
   action_buttons: ActionButtonsConfig;
   cursor: CursorConfig;
+  custom_keyboard: CustomKeyboardConfig;
 }
 
 export function defaultConfig(): AppConfig {
@@ -166,7 +173,7 @@ export function defaultConfig(): AppConfig {
       hold_ms: DEFAULT_HOLD_MS[name],
     };
   }
-  return { calibration: defaultCalibration(), gestures, action_buttons: { x: null, y: null }, cursor: defaultCursor() };
+  return { calibration: defaultCalibration(), gestures, action_buttons: { x: null, y: null }, cursor: defaultCursor(), custom_keyboard: { x: null, y: null, compact: true } };
 }
 
 function mergeGesture(name: GestureName, raw: Record<string, unknown>): GestureConfig {
@@ -238,9 +245,17 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
     y: optionalFloat(rawButtons.y),
   };
 
+  const rawKeyboard = (raw.custom_keyboard as Record<string, unknown>) ?? {};
+  const compactRaw = rawKeyboard.compact;
+  const custom_keyboard: CustomKeyboardConfig = {
+    x: optionalFloat(rawKeyboard.x),
+    y: optionalFloat(rawKeyboard.y),
+    compact: typeof compactRaw === "boolean" ? compactRaw : fallback.custom_keyboard.compact,
+  };
+
   const cursor = cursorFromDict((raw.cursor as Record<string, unknown>) ?? {});
 
-  return { calibration, gestures, action_buttons, cursor };
+  return { calibration, gestures, action_buttons, cursor, custom_keyboard };
 }
 
 export function loadConfig(filePath: string): AppConfig {

@@ -6,7 +6,6 @@ export function pulseRadius(progress: number, startRadius: number, endRadius: nu
 }
 
 export const RING_COLOR = "#4da3ff";
-export const WARNING_COLOR = "#ff4d4d";
 export const START_RADIUS = 6;
 export const END_RADIUS = 28;
 export const DURATION_MS = 300;

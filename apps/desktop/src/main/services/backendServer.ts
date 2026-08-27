@@ -22,7 +22,7 @@ export interface BackendServerDeps {
   engine: TrackingEngine;
   config: AppConfig;
   configPath?: string;
-  toggleTouchKeyboard?: () => Promise<boolean>;
+  openKeyboard?: () => void;
   toggleVoiceTyping?: () => Promise<void>;
 }
 
@@ -33,7 +33,7 @@ export class BackendServer extends EventEmitter {
 
   private readonly engine: TrackingEngine;
   private readonly configPath: string;
-  private readonly toggleTouchKeyboardImpl: () => Promise<boolean>;
+  private readonly openKeyboardImpl: () => void;
   private readonly toggleVoiceTypingImpl: () => Promise<void>;
   private frameSeq = 0;
   private frameInFlight = false;
@@ -47,7 +47,7 @@ export class BackendServer extends EventEmitter {
     this.engine = deps.engine;
     this.config = deps.config;
     this.configPath = deps.configPath ?? "config.json";
-    this.toggleTouchKeyboardImpl = deps.toggleTouchKeyboard ?? (async () => false);
+    this.openKeyboardImpl = deps.openKeyboard ?? (() => {});
     this.toggleVoiceTypingImpl = deps.toggleVoiceTyping ?? (async () => {});
   }
 
@@ -172,6 +172,9 @@ export class BackendServer extends EventEmitter {
           if (payload.cursor) {
             merged.cursor = { ...(onDiskDict.cursor as object), ...(payload.cursor as object) };
           }
+          if (payload.custom_keyboard) {
+            merged.custom_keyboard = { ...(onDiskDict.custom_keyboard as object), ...(payload.custom_keyboard as object) };
+          }
           const saved = configFromDict(merged);
           saveConfig(this.configPath, saved);
           // Salvar must apply live, not just persist to disk -- otherwise a
@@ -188,8 +191,8 @@ export class BackendServer extends EventEmitter {
         case "open_keyboard": {
           const x = Number(command.x ?? 0);
           const y = Number(command.y ?? 0);
-          const opened = await this.toggleTouchKeyboardImpl();
-          this.emit("message", { type: "keyboard_result", opened, x, y });
+          this.openKeyboardImpl();
+          this.emit("message", { type: "keyboard_result", opened: true, x, y });
           break;
         }
         case "open_voice_typing":

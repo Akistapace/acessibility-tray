@@ -156,13 +156,15 @@ function readFormIntoConfig(): void {
   };
 }
 
-// This window never owns action_buttons: the floating buttons window
-// persists its own position on every drag, straight to disk. currentConfig
-// still holds whatever was on disk at page load, so sending it back would
-// silently revert any drag made since. Leaving the key out entirely lets
-// the backend's save_config merge keep the on-disk position.
+// This window never owns action_buttons or custom_keyboard: the floating
+// buttons window and the keyboard overlay window each persist their own
+// position (and, for the keyboard, compact/full mode) straight to disk on
+// every drag/toggle. currentConfig still holds whatever was on disk at
+// page load, so sending either back would silently revert any change made
+// since. Leaving both keys out entirely lets the backend's save_config
+// merge keep the on-disk values.
 function configPayloadWithoutButtons(): Record<string, unknown> {
-  const { action_buttons: _ignored, ...rest } = currentConfig;
+  const { action_buttons: _ignored, custom_keyboard: _ignoredKeyboard, ...rest } = currentConfig as unknown as Record<string, unknown>;
   return rest;
 }
 

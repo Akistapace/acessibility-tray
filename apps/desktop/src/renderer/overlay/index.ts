@@ -1,10 +1,9 @@
-import { pulseRadius, RING_COLOR, WARNING_COLOR, START_RADIUS, END_RADIUS, DURATION_MS } from "./pulse.js";
+import { pulseRadius, RING_COLOR, START_RADIUS, END_RADIUS, DURATION_MS } from "./pulse.js";
 
 const canvas = document.getElementById("canvas") as HTMLCanvasElement;
 canvas.width = window.innerWidth;
 canvas.height = window.innerHeight;
 const ctx = canvas.getContext("2d")!;
-const tooltip = document.getElementById("tooltip") as HTMLDivElement;
 
 // Incoming x/y coordinates are DIP/logical virtual-desktop pixels (main
 // process converts nut-js's physical-pixel position before sending, see
@@ -35,14 +34,6 @@ function drawPulse(x: number, y: number, color: string): void {
   }, DURATION_MS / steps);
 }
 
-function showTooltip(x: number, y: number, text: string): void {
-  tooltip.textContent = text;
-  tooltip.style.left = `${x}px`;
-  tooltip.style.top = `${y - 40}px`;
-  tooltip.style.display = "block";
-  setTimeout(() => (tooltip.style.display = "none"), 2500);
-}
-
 window.backend.on("action", (message) => {
   const action = message as { x: number; y: number };
   const { x, y } = toLocal(action.x, action.y);
@@ -50,12 +41,7 @@ window.backend.on("action", (message) => {
 });
 
 window.backend.on("keyboard_result", (message) => {
-  const result = message as { opened: boolean; x: number; y: number };
+  const result = message as { x: number; y: number };
   const { x, y } = toLocal(result.x, result.y);
-  if (result.opened) {
-    drawPulse(x, y, RING_COLOR);
-  } else {
-    drawPulse(x, y, WARNING_COLOR);
-    showTooltip(x, y, "Clique num campo de texto antes de abrir o teclado");
-  }
+  drawPulse(x, y, RING_COLOR);
 });
