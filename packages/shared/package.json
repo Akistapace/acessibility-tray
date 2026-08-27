@@ -2,9 +2,10 @@
   "name": "@facemesh-mouse/shared",
   "version": "0.1.0",
   "private": true,
-  "main": "src/types/tracking.ts",
-  "types": "src/types/tracking.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
+    "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {

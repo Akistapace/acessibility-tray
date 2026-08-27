@@ -1,10 +1,9 @@
 import { performance } from "node:perf_hooks";
 import type { AppConfig } from "./config.service";
-import type { FaceMetrics } from "@facemesh-mouse/shared";
+import { MOUTH_CLOSED_MAX, triggerProgress, type FaceMetrics } from "@facemesh-mouse/shared";
 
-export const MOUTH_CLOSED_MAX = 0.15;
+export { MOUTH_CLOSED_MAX, triggerProgress };
 
-const FIRES_BELOW = new Set(["blink_a", "blink_b", "blink_both"]);
 const REPEATING_ACTIONS = new Set(["scroll_up", "scroll_down"]);
 const HOLD_ACTIONS = new Set(["left_drag"]);
 const CONTINUOUS_ACTIONS = new Set([...HOLD_ACTIONS, ...REPEATING_ACTIONS]);
@@ -22,41 +21,6 @@ function condition(name: string, m: FaceMetrics, threshold: number): boolean {
     case "mouth_right": return m.mouthShiftRatio > threshold && m.mouthOpenRatio <= MOUTH_CLOSED_MAX;
     default: throw new Error(`Unknown gesture: ${name}`);
   }
-}
-
-function progressValue(name: string, m: FaceMetrics): number {
-  switch (name) {
-    case "blink_a": return m.earA;
-    case "blink_b": return m.earB;
-    case "blink_both": return Math.max(m.earA, m.earB);
-    case "eyebrow_a": return m.eyebrowRaiseA;
-    case "eyebrow_b": return m.eyebrowRaiseB;
-    case "eyebrow_both": return Math.min(m.eyebrowRaiseA, m.eyebrowRaiseB);
-    case "mouth_open": return m.mouthOpenRatio;
-    case "mouth_left": return -m.mouthShiftRatio;
-    case "mouth_right": return m.mouthShiftRatio;
-    default: throw new Error(`Unknown gesture: ${name}`);
-  }
-}
-
-function isReachable(name: string, m: FaceMetrics, threshold: number): boolean {
-  switch (name) {
-    case "blink_a": return m.earB >= threshold;
-    case "blink_b": return m.earA >= threshold;
-    case "eyebrow_a": return m.eyebrowRaiseB <= threshold;
-    case "eyebrow_b": return m.eyebrowRaiseA <= threshold;
-    case "mouth_left":
-    case "mouth_right": return m.mouthOpenRatio <= MOUTH_CLOSED_MAX;
-    default: return true;
-  }
-}
-
-export function triggerProgress(name: string, metrics: FaceMetrics, threshold: number): number {
-  if (!isReachable(name, metrics, threshold)) return 0.0;
-  const value = progressValue(name, metrics);
-  const t = threshold || 1e-6;
-  const ratio = FIRES_BELOW.has(name) ? t / Math.max(value, 1e-6) : value / t;
-  return Math.max(0.0, Math.min(1.0, ratio));
 }
 
 interface GestureState {

@@ -23,6 +23,25 @@ const advapi32 = koffi.load("advapi32.dll");
 const SystemParametersInfoW = user32.func(
   "bool SystemParametersInfoW(uint32 uiAction, uint32 uiParam, void *pvParam, uint32 fWinIni)"
 );
+// The registry Arrow/CursorBaseSize values only take visible effect on the
+// NEXT logon -- confirmed by direct measurement (GetIconInfo/GetObject on
+// the live system cursor still reports the stock 32x32 monochrome bitmap
+// right after writing a 96px CursorBaseSize and rebroadcasting
+// SPI_SETCURSORS). SetSystemCursor is the mechanism real cursor-swap
+// utilities use for an INSTANT, this-session-only visual change: load our
+// .cur at its own real pixel size (LR_LOADFROMFILE, no LR_DEFAULTSIZE so
+// Windows doesn't resample it back down) and hand it directly to the
+// live Arrow cursor slot. It owns/destroys the handle it's given, so no
+// separate DestroyCursor call is needed. The registry writes below still
+// matter for persistence across the next logon and for other apps reading
+// the scheme, but they're not what makes the slider visible right now.
+const LoadImageW = user32.func(
+  "void *LoadImageW(void *hinst, const char16_t *lpszName, uint32 uType, int32 cx, int32 cy, uint32 fuLoad)"
+);
+const SetSystemCursor = user32.func("bool SetSystemCursor(void *hcur, uint32 id)");
+const IMAGE_CURSOR = 2;
+const LR_LOADFROMFILE = 0x00000010;
+const OCR_NORMAL = 32512;
 const RegCreateKeyExW = advapi32.func(
   "long RegCreateKeyExW(void *hKey, const char16_t *lpSubKey, uint32 Reserved, void *lpClass, uint32 dwOptions, uint32 samDesired, void *lpSecurityAttributes, _Out_ void **phkResult, void *lpdwDisposition)"
 );
@@ -162,6 +181,21 @@ function stashOriginalIfNeeded(cursorDir: string): void {
   fs.writeFileSync(stashPath, JSON.stringify({ value, baseSize }), "utf-8");
 }
 
+// Loads the just-written .cur at its own real size and swaps it into the
+// live Arrow slot immediately, this session only -- see the LoadImageW/
+// SetSystemCursor comment above for why the registry alone doesn't do this.
+// A failure here must not throw: the registry write above already
+// succeeded (or logged its own failure), and this is a same-session nicety
+// on top of it, not the source of truth.
+function applyLiveSystemCursor(curPath: string): void {
+  try {
+    const hCursor = LoadImageW(null, curPath, IMAGE_CURSOR, 0, 0, LR_LOADFROMFILE);
+    if (hCursor) SetSystemCursor(hCursor, OCR_NORMAL);
+  } catch (exc) {
+    console.error(`facemesh-mouse: live cursor swap failed (${exc})`);
+  }
+}
+
 export function applyCursor(sizePx: number, mode: string, customColor: string, cursorDir: string = defaultCursorDir()): void {
   if (sizePx === DEFAULT_SIZE_PX && mode === "default") {
     // Nothing was ever applied -> restoreCursor() is a pure no-op (no
@@ -185,8 +219,34 @@ export function applyCursor(sizePx: number, mode: string, customColor: string, c
     const arrowOk = writeArrowRegistry(curPath);
     const baseSizeOk = writeCursorBaseSize(sizePx);
     if (arrowOk || baseSizeOk) broadcastCursorChange();
+    applyLiveSystemCursor(curPath);
   } catch (exc) {
     console.error(`facemesh-mouse: cursor theme apply failed (${exc})`);
+  }
+}
+
+// Mirrors applyLiveSystemCursor: registry writes + SPI_SETCURSORS alone only
+// take visible effect on the NEXT logon (see the comment above that
+// function), so quitting the app would otherwise leave the custom
+// size/color showing on screen until the user logs out, even though the
+// registry was already restored underneath. If the user had a custom Arrow
+// cursor active before this app ever touched it, that original file is
+// reloaded directly. Otherwise (stash value is null -- Windows' own stock
+// arrow was active) the same generator applyCursor's no-op guard already
+// treats as canonical (32px, black) rebuilds that exact shape, since there's
+// no live system cursor file to point LoadImageW at for the stock resource.
+function restoreLiveSystemCursor(cursorDir: string, originalPath: string | null): void {
+  if (originalPath) {
+    applyLiveSystemCursor(originalPath);
+    return;
+  }
+  try {
+    fs.mkdirSync(cursorDir, { recursive: true });
+    const defaultCurPath = path.join(cursorDir, CUR_FILENAME);
+    fs.writeFileSync(defaultCurPath, buildCurBytesColor(DEFAULT_SIZE_PX, MODE_COLORS.default));
+    applyLiveSystemCursor(defaultCurPath);
+  } catch (exc) {
+    console.error(`facemesh-mouse: live cursor restore failed (${exc})`);
   }
 }
 
@@ -198,6 +258,7 @@ export function restoreCursor(cursorDir: string = defaultCursorDir()): void {
     const arrowOk = writeArrowRegistry(stash.value ?? null);
     const baseSizeOk = writeCursorBaseSize(stash.baseSize ?? null);
     if (arrowOk || baseSizeOk) broadcastCursorChange();
+    restoreLiveSystemCursor(cursorDir, stash.value ?? null);
     if (arrowOk && baseSizeOk) {
       fs.unlinkSync(stashPath);
     } else {

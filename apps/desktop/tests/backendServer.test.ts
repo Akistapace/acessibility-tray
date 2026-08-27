@@ -167,6 +167,28 @@ describe("BackendServer.send", () => {
     expect(reloaded.cursor).toEqual({ size_px: 48, mode: "custom", custom_color: "#111111" });
   });
 
+  // Regression test: save_config used to only persist to disk, leaving the
+  // already-running engine on its old config -- so reassigning a gesture's
+  // action (e.g. to left_drag/scroll_up/scroll_down/freeze_cursor) via
+  // Salvar had no live effect until the app was restarted, even though the
+  // config UI itself (re-reading the broadcast below) showed the new value.
+  it("save_config applies to the engine and updates server.config, like update_config", async () => {
+    const file = path.join(tmpDir, "config.json");
+    const seed = configMod.defaultConfig();
+    configMod.saveConfig(file, seed);
+
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig(), configPath: file });
+    const next = configMod.configToDict(configMod.defaultConfig()) as Record<string, unknown>;
+    (next.gestures as Record<string, unknown>).blink_both = {
+      action: "left_drag", threshold: 0.21, cooldown_ms: 400, hold_ms: 400,
+    };
+
+    await server.send({ type: "save_config", config: next });
+
+    expect(server.config.gestures.blink_both.action).toBe("left_drag");
+  });
+
   it("save_config broadcasts the saved config so other windows learn of the change without restarting", async () => {
     const file = path.join(tmpDir, "config.json");
     configMod.saveConfig(file, configMod.defaultConfig());

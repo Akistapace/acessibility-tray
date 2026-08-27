@@ -174,6 +174,14 @@ export class BackendServer extends EventEmitter {
           }
           const saved = configFromDict(merged);
           saveConfig(this.configPath, saved);
+          // Salvar must apply live, not just persist to disk -- otherwise a
+          // gesture's action reassigned mid-session (e.g. to left_drag,
+          // scroll_up/down, or freeze_cursor) silently keeps running the OLD
+          // action until the engine is restarted, while the config UI (which
+          // re-reads this same broadcast) already shows the new one.
+          this.config = saved;
+          this.engine.updateConfig(this.config);
+          this.syncClickLogging(this.config);
           this.emit("message", { type: "config", config: configToDict(saved) });
           break;
         }

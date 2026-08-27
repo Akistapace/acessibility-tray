@@ -73,9 +73,13 @@ describe("GESTURE_LANDMARK_GROUPS", () => {
     for (const name of GESTURE_NAMES) {
       expect(Array.isArray(GESTURE_LANDMARK_GROUPS[name])).toBe(true);
       expect(GESTURE_LANDMARK_GROUPS[name].length).toBeGreaterThan(0);
-      for (const index of GESTURE_LANDMARK_GROUPS[name]) {
-        expect(Number.isInteger(index)).toBe(true);
-        expect(index).toBeGreaterThanOrEqual(0);
+      for (const group of GESTURE_LANDMARK_GROUPS[name]) {
+        expect(Array.isArray(group)).toBe(true);
+        expect(group.length).toBeGreaterThan(0);
+        for (const index of group) {
+          expect(Number.isInteger(index)).toBe(true);
+          expect(index).toBeGreaterThanOrEqual(0);
+        }
       }
     }
   });

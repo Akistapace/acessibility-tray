@@ -7,6 +7,7 @@ import { FaceLandmarker, FilesetResolver } from "@mediapipe/tasks-vision";
 import cvReadyPromise from "@techstark/opencv-js";
 import type { Mat as CvMat } from "@techstark/opencv-js";
 import { computeFaceMetrics, EYE_OUTER_A, EYE_OUTER_B, GESTURE_LANDMARK_GROUPS, type Point } from "./faceMetrics";
+import { triggerProgress } from "@facemesh-mouse/shared";
 import { PointTracker } from "./pointTracker";
 
 export {}; // module scope
@@ -39,6 +40,29 @@ const previewCanvas = document.createElement("canvas");
 previewCanvas.width = PREVIEW_WIDTH;
 previewCanvas.height = PREVIEW_HEIGHT;
 const previewCtx = previewCanvas.getContext("2d")!;
+
+// Monotone-chain convex hull, ascending x (ties by y). Used to outline a
+// highlighted gesture's actual landmark points instead of a padded bounding
+// shape.
+function convexHull(points: Point[]): Point[] {
+  const pts = [...points].sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  if (pts.length <= 2) return pts;
+  const cross = (o: Point, a: Point, b: Point) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lower: Point[] = [];
+  for (const p of pts) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) lower.pop();
+    lower.push(p);
+  }
+  const upper: Point[] = [];
+  for (let i = pts.length - 1; i >= 0; i--) {
+    const p = pts[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) upper.pop();
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
+}
 
 function renderPreviewJpeg(metrics: ReturnType<typeof computeFaceMetrics>): string {
   previewCtx.drawImage(workCanvas, 0, 0, WORK_WIDTH, WORK_HEIGHT, 0, 0, PREVIEW_WIDTH, PREVIEW_HEIGHT);
@@ -73,28 +97,49 @@ function renderPreviewJpeg(metrics: ReturnType<typeof computeFaceMetrics>): stri
     previewCtx.fill();
   }
   if (metrics && highlightedGesture) {
-    const indices = GESTURE_LANDMARK_GROUPS[highlightedGesture];
-    if (indices?.length) {
-      const xs = indices.map((i) => metrics.landmarks[i][0] * PREVIEW_WIDTH);
-      const ys = indices.map((i) => metrics.landmarks[i][1] * PREVIEW_HEIGHT);
-      const xMin = Math.min(...xs), xMax = Math.max(...xs);
-      const yMin = Math.min(...ys), yMax = Math.max(...ys);
-      const padX = Math.max((xMax - xMin) * 0.4, 10);
-      const padY = Math.max((yMax - yMin) * 0.4, 10);
-      const cx = (xMin + xMax) / 2, cy = (yMin + yMax) / 2;
-      const rx = (xMax - xMin) / 2 + padX, ry = (yMax - yMin) / 2 + padY;
+    const groups = GESTURE_LANDMARK_GROUPS[highlightedGesture];
+    if (groups?.length) {
+      // Green while building up to the gesture's trigger threshold, blue
+      // once it's fully met (progress reaches 1) -- same 0..1 value the
+      // Gestos tab's own progress bar reads, via the same shared
+      // triggerProgress used to fire the gesture in the first place.
+      const threshold = gestureThresholds[highlightedGesture];
+      const progress = threshold !== undefined ? triggerProgress(highlightedGesture, metrics, threshold) : 0;
+      const color = progress >= 1 ? "rgb(64, 156, 255)" : "rgb(0, 255, 0)";
       previewCtx.save();
-      previewCtx.globalAlpha = 0.35;
-      previewCtx.fillStyle = "rgb(0, 255, 0)";
-      previewCtx.beginPath();
-      previewCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-      previewCtx.fill();
+      // Each sub-group gets its own hull, so a "_both" gesture (two eyes,
+      // two eyebrows) shows two separate shapes instead of one hull spanning
+      // the gap between them.
+      for (const indices of groups) {
+        const pts: Point[] = indices.map((i) => [
+          metrics.landmarks[i][0] * PREVIEW_WIDTH,
+          metrics.landmarks[i][1] * PREVIEW_HEIGHT,
+        ]);
+        const hull = convexHull(pts);
+        if (hull.length >= 3) {
+          previewCtx.globalAlpha = 0.25;
+          previewCtx.fillStyle = color;
+          previewCtx.beginPath();
+          previewCtx.moveTo(hull[0][0], hull[0][1]);
+          for (const [x, y] of hull.slice(1)) previewCtx.lineTo(x, y);
+          previewCtx.closePath();
+          previewCtx.fill();
+          previewCtx.globalAlpha = 1;
+          previewCtx.strokeStyle = color;
+          previewCtx.lineWidth = 1.5;
+          previewCtx.stroke();
+        }
+        // Mesh vertices for the highlighted group, drawn on top of the hull
+        // so the actual tracked points (not just the enclosing shape) are
+        // visible.
+        previewCtx.fillStyle = color;
+        for (const [x, y] of pts) {
+          previewCtx.beginPath();
+          previewCtx.arc(x, y, 1.5, 0, 2 * Math.PI);
+          previewCtx.fill();
+        }
+      }
       previewCtx.restore();
-      previewCtx.strokeStyle = "rgb(0, 255, 0)";
-      previewCtx.lineWidth = 2;
-      previewCtx.beginPath();
-      previewCtx.ellipse(cx, cy, rx, ry, 0, 0, 2 * Math.PI);
-      previewCtx.stroke();
     }
   }
   const dataUrl = previewCanvas.toDataURL("image/jpeg", JPEG_QUALITY);
@@ -115,6 +160,20 @@ window.tracking.onSetPreview((enabled) => { previewEnabled = enabled; });
 
 let highlightedGesture: string | null = null;
 window.tracking.onHighlightGesture((gesture) => { highlightedGesture = gesture; });
+
+// Per-gesture trigger thresholds, needed to color the highlight overlay
+// above -- this window never owns config, it just needs to read the same
+// thresholds the Gestos tab's progress bars use. Populated from whichever
+// window's get_config/save_config triggers a broadcast; requested here too
+// so a preview opened before any other window touches config still gets it.
+let gestureThresholds: Record<string, number> = {};
+window.backend.on("config", (message) => {
+  const config = (message as { config: { gestures: Record<string, { threshold: number }>} }).config;
+  gestureThresholds = Object.fromEntries(
+    Object.entries(config.gestures).map(([name, g]) => [name, g.threshold])
+  );
+});
+window.backend.send({ type: "get_config" });
 
 async function main(): Promise<void> {
   const video = document.getElementById("video") as HTMLVideoElement;

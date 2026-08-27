@@ -1,4 +1,5 @@
 import { isKeyboardButtonEnabled, isVoiceButtonEnabled } from "./buttonVisibility.js";
+import { isClick } from "./clickOrDrag.js";
 
 // Updated after every pointermove so ipcMoveWindow always gets the delta
 // since the PREVIOUS move event, not the cumulative distance from
@@ -39,12 +40,58 @@ dragHandle.addEventListener("pointerup", onHandlePointerUp);
 const keyboard = document.getElementById("keyboard") as HTMLDivElement;
 const mic = document.getElementById("mic") as HTMLDivElement;
 
-keyboard.addEventListener("click", (event) => {
-  window.backend.send({ type: "open_keyboard", x: event.screenX, y: event.screenY });
-});
-mic.addEventListener("click", () => {
-  window.backend.send({ type: "open_voice_typing" });
-});
+// The circles are draggable too (not just the top grip handle) -- press,
+// move past CLICK_DRAG_THRESHOLD_PX, and it's a drag; release within the
+// threshold and it's a click that opens the keyboard/mic. Matches the
+// press/lastMovePos split used by the drag-handle above: lastMovePos feeds
+// per-event deltas to buttons:drag-move, while `press` keeps the original
+// down position for the isClick(press, release) check at pointerup.
+let circlePress: { x: number; y: number } | null = null;
+let circleLastMovePos: { x: number; y: number } | null = null;
+
+function onCirclePointerDown(event: PointerEvent, target: "keyboard" | "mic"): void {
+  circlePress = { x: event.screenX, y: event.screenY };
+  circleLastMovePos = circlePress;
+  const el = event.target as HTMLElement;
+  el.setPointerCapture(event.pointerId);
+  el.dataset.target = target;
+}
+
+function onCirclePointerMove(event: PointerEvent): void {
+  if (!circleLastMovePos || event.buttons !== 1) return;
+  const dx = event.screenX - circleLastMovePos.x;
+  const dy = event.screenY - circleLastMovePos.y;
+  if (dx !== 0 || dy !== 0) {
+    window.backend.send({ type: "buttons:drag-move", dx, dy });
+    circleLastMovePos = { x: event.screenX, y: event.screenY };
+  }
+}
+
+function onCirclePointerUp(event: PointerEvent): void {
+  if (!circlePress) return;
+  const release = { x: event.screenX, y: event.screenY };
+  const target = (event.target as HTMLElement).dataset.target;
+  if (isClick(circlePress, release)) {
+    if (target === "keyboard") {
+      window.backend.send({ type: "open_keyboard", x: release.x, y: release.y });
+    } else if (target === "mic") {
+      window.backend.send({ type: "open_voice_typing" });
+    }
+  } else {
+    window.backend.send({ type: "buttons:drag-end" });
+  }
+  circlePress = null;
+  circleLastMovePos = null;
+}
+
+for (const [el, name] of [
+  [keyboard, "keyboard"],
+  [mic, "mic"],
+] as const) {
+  el.addEventListener("pointerdown", (e) => onCirclePointerDown(e, name));
+  el.addEventListener("pointermove", onCirclePointerMove);
+  el.addEventListener("pointerup", onCirclePointerUp);
+}
 
 window.backend.on("config", (message) => {
   const { config } = message as { config: Parameters<typeof isKeyboardButtonEnabled>[0] };

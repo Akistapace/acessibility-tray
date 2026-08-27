@@ -38,22 +38,28 @@
       <div id="tab-movimento" class="tab-panel active">
         <label>Sensibilidade horizontal
           <input type="range" id="sensitivity_x" min="0.005" max="0.10" step="0.001" />
+          <output for="sensitivity_x" class="range-value"></output>
         </label>
         <label>Sensibilidade vertical
           <input type="range" id="sensitivity_y" min="0.005" max="0.10" step="0.001" />
+          <output for="sensitivity_y" class="range-value"></output>
         </label>
         <label>Aceleração
           <input type="range" id="acceleration" min="0" max="1" step="0.01" />
+          <output for="acceleration" class="range-value"></output>
         </label>
         <label>Limiar de movimento (px)
           <input type="range" id="motion_threshold_px" min="0" max="10" step="0.1" />
+          <output for="motion_threshold_px" class="range-value"></output>
         </label>
-        <label>Espera antes de retomar (s)
+        <label>Espera antes do cursor retomar controle após movimento manual (s)
           <input type="range" id="yield_resume_after_s" min="1" max="10" step="0.1" />
+          <output for="yield_resume_after_s" class="range-value"></output>
         </label>
         <label><input type="checkbox" id="dwell_click_enabled" /> Clique por permanência</label>
         <label>Tempo de permanência (s)
           <input type="range" id="dwell_time_s" min="0.3" max="5" step="0.1" />
+          <output for="dwell_time_s" class="range-value"></output>
         </label>
         <button class="secondary-button save-trigger">Salvar configurações</button>
       </div>
@@ -67,21 +73,21 @@
         </label>
         <p class="hint">
           Em alguns PCs o teclado touch do Windows não está disponível e o botão
-          nunca abre nada — desative-o aqui pra tirá-lo da tela.
+          nunca abre nada desative-o aqui pra tirá-lo da tela.
         </p>
         <label>
           <input type="checkbox" id="voice_button_enabled" /> Mostrar botão de digitação por voz
         </label>
         <p class="hint">
-          Desative se você não usa digitação por voz — o botão de microfone some
+          Desative se você não usa digitação por voz,  botão de microfone some
           da tela junto com o de teclado.
         </p>
         <label><input type="checkbox" id="click_logging_enabled" /> Registrar cliques em clicks.log</label>
         <div class="cursor-section">
           <strong>Configurações do mouse</strong>
-          <p class="hint">Aparência do cursor</p>
           <label>Tamanho da seta
             <input type="range" id="cursor_size_px" min="32" max="96" step="8" />
+            <output for="cursor_size_px" class="range-value"></output>
           </label>
           <label>Cor
             <select id="cursor_mode">
@@ -92,7 +98,7 @@
               <option value="mista">Mista (inverte com o fundo)</option>
             </select>
           </label>
-          <label>Cor personalizada
+          <label id="cursor_custom_color_row">Cor personalizada
             <input type="color" id="cursor_custom_color" />
           </label>
         </div>

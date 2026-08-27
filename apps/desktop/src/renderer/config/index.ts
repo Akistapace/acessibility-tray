@@ -59,8 +59,14 @@ function renderGestureRows(): void {
           .map(([value, label]) => `<option value="${value}">${label}</option>`)
           .join("")}
       </select>
-      <label>Espera (ms) <input type="range" id="hold-${name}" min="0" max="1000" step="10" /></label>
-      <label>Intervalo (ms) <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" /></label>
+      <label>Espera (ms)
+        <input type="range" id="hold-${name}" min="0" max="1000" step="10" />
+        <output for="hold-${name}" class="range-value"></output>
+      </label>
+      <label>Intervalo (ms)
+        <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" />
+        <output for="cooldown-${name}" class="range-value"></output>
+      </label>
     `;
     container.appendChild(row);
     row.addEventListener("pointerenter", () => {
@@ -88,8 +94,38 @@ function applyConfigToForm(): void {
   if (cursorModeEl) cursorModeEl.value = currentConfig.cursor.mode;
   const cursorColorEl = document.getElementById("cursor_custom_color") as HTMLInputElement | null;
   if (cursorColorEl) cursorColorEl.value = currentConfig.cursor.custom_color;
+  updateCustomColorVisibility();
   renderGestureRows();
+  initRangeOutputs();
 }
+
+// The custom-color picker only means something when mode is "custom" --
+// showing it for every mode (default/white/black/mista) implies it's live
+// when it isn't.
+function updateCustomColorVisibility(): void {
+  const mode = (document.getElementById("cursor_mode") as HTMLSelectElement | null)?.value;
+  const row = document.getElementById("cursor_custom_color_row") as HTMLElement | null;
+  if (row) row.style.display = mode === "custom" ? "" : "none";
+}
+document.getElementById("cursor_mode")?.addEventListener("change", updateCustomColorVisibility);
+
+// Keeps each slider's <output for="..."> in sync with its current value --
+// both right after a programmatic .value assignment (initial load, config
+// broadcast) and live while the user drags, via the delegated "input"
+// listener below.
+function updateRangeOutput(el: HTMLInputElement): void {
+  const output = el.parentElement?.querySelector<HTMLOutputElement>(`output[for="${el.id}"]`);
+  if (output) output.textContent = el.value;
+}
+
+function initRangeOutputs(): void {
+  document.querySelectorAll<HTMLInputElement>('input[type="range"]').forEach(updateRangeOutput);
+}
+
+document.addEventListener("input", (event) => {
+  const target = event.target;
+  if (target instanceof HTMLInputElement && target.type === "range") updateRangeOutput(target);
+});
 
 function readFormIntoConfig(): void {
   for (const key of Object.keys(currentConfig.calibration)) {

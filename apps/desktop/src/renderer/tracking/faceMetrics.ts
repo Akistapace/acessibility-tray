@@ -17,6 +17,20 @@ export const EYEBROW_B = 334;
 export const EYELID_TOP_A = 159;
 export const EYELID_TOP_B = 386;
 
+// The real brow hairline, as two 5-point arcs (outer row + inner row) --
+// read from FaceLandmarker.FACE_LANDMARKS_RIGHT_EYEBROW/_LEFT_EYEBROW's own
+// connection topology, not guessed. EYEBROW_A/EYEBROW_B above are single
+// points used only for the raise-ratio calculation below; these arcs are
+// for drawing the actual eyebrow shape in the camera preview.
+export const EYEBROW_ARC_A = [
+  [46, 53, 52, 65, 55],
+  [70, 63, 105, 66, 107],
+];
+export const EYEBROW_ARC_B = [
+  [276, 283, 282, 295, 285],
+  [300, 293, 334, 296, 336],
+];
+
 export type Point = [number, number];
 export type FaceMetrics = SharedFaceMetrics;
 
@@ -27,17 +41,23 @@ const MOUTH_LANDMARKS = [MOUTH_TOP_INNER, MOUTH_BOTTOM_INNER, MOUTH_CORNER_LEFT,
 
 // Which landmark indices to highlight in the camera preview when the config
 // window's Gestos tab hovers a given gesture row. Keys must match
-// config.service.ts's GESTURE_NAMES exactly.
-export const GESTURE_LANDMARK_GROUPS: Record<string, number[]> = {
-  blink_a: EYE_A,
-  blink_b: EYE_B,
-  blink_both: [...EYE_A, ...EYE_B],
-  eyebrow_a: [EYEBROW_A, EYELID_TOP_A, ...EYE_A],
-  eyebrow_b: [EYEBROW_B, EYELID_TOP_B, ...EYE_B],
-  eyebrow_both: [EYEBROW_A, EYELID_TOP_A, EYEBROW_B, EYELID_TOP_B, ...EYE_A, ...EYE_B],
-  mouth_open: MOUTH_LANDMARKS,
-  mouth_left: MOUTH_LANDMARKS,
-  mouth_right: MOUTH_LANDMARKS,
+// config.service.ts's GESTURE_NAMES exactly. Each gesture maps to a list of
+// sub-groups -- one per convex hull to draw -- so a "_both" gesture renders
+// two separate hulls (left eye, right eye) instead of one hull spanning the
+// gap between them.
+export const GESTURE_LANDMARK_GROUPS: Record<string, number[][]> = {
+  blink_a: [EYE_A],
+  blink_b: [EYE_B],
+  blink_both: [EYE_A, EYE_B],
+  // Own arc points only (not EYELID_TOP/EYE_A) -- matches the eye groups
+  // above, which highlight only the eye's own ring rather than pulling in
+  // the eyebrow too. Same convex-hull-plus-dots render path as blink/mouth.
+  eyebrow_a: [EYEBROW_ARC_A.flat()],
+  eyebrow_b: [EYEBROW_ARC_B.flat()],
+  eyebrow_both: [EYEBROW_ARC_A.flat(), EYEBROW_ARC_B.flat()],
+  mouth_open: [MOUTH_LANDMARKS],
+  mouth_left: [MOUTH_LANDMARKS],
+  mouth_right: [MOUTH_LANDMARKS],
 };
 
 function dist(p1: Point, p2: Point): number {

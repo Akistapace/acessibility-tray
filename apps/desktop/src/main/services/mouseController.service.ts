@@ -23,6 +23,9 @@ export interface MouseDriver {
   scroll(dx: number, dy: number): Promise<void>;
 }
 
+// The standard Win32 WM_MOUSEWHEEL unit: one notch of a physical wheel.
+const WHEEL_DELTA = 120;
+
 export class NutJsMouseDriver implements MouseDriver {
   // nut-js defaults to a 100ms artificial delay before every click/press/
   // release/scroll call, meant to humanize input for automation use cases.
@@ -70,10 +73,18 @@ export class NutJsMouseDriver implements MouseDriver {
   }
   async scroll(dx: number, dy: number): Promise<void> {
     const { mouse } = await this.nut;
-    if (dy > 0) await mouse.scrollUp(Math.abs(dy));
-    else if (dy < 0) await mouse.scrollDown(Math.abs(dy));
-    if (dx > 0) await mouse.scrollRight(Math.abs(dx));
-    else if (dx < 0) await mouse.scrollLeft(Math.abs(dx));
+    // nut-js/libnut passes its "amount" straight through as the raw
+    // WM_MOUSEWHEEL delta (confirmed with a WH_MOUSE_LL hook: scrollUp(1)
+    // produces a real wheel event whose mouseData is literally 1) instead of
+    // treating it as a count of notches. Windows only recognizes a scroll
+    // once the accumulated delta reaches WHEEL_DELTA (120 -- see
+    // WM_MOUSEWHEEL's own docs), so a caller-facing "1 notch" here has to be
+    // scaled up to 120 raw units or it's silently absorbed and nothing ever
+    // visibly scrolls.
+    if (dy > 0) await mouse.scrollUp(Math.abs(dy) * WHEEL_DELTA);
+    else if (dy < 0) await mouse.scrollDown(Math.abs(dy) * WHEEL_DELTA);
+    if (dx > 0) await mouse.scrollRight(Math.abs(dx) * WHEEL_DELTA);
+    else if (dx < 0) await mouse.scrollLeft(Math.abs(dx) * WHEEL_DELTA);
   }
 }
 

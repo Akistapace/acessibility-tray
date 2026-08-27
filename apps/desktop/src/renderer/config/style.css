@@ -205,6 +205,13 @@ input[type="checkbox"]:focus-visible,
 
 input[type="range"] { width: 100%; cursor: pointer; }
 
+.range-value {
+  align-self: flex-end;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+}
+
 progress {
   width: 100%;
   height: 10px;
