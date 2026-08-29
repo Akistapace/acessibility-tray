@@ -2,14 +2,19 @@ import fs from "node:fs";
 import path from "node:path";
 import { foregroundWindowTitle } from "./win32.service";
 
-export const LOG_PATH = "clicks.log";
+// Desktop, not the install/cwd directory -- the whole point of this log is
+// that a non-technical user can find it themselves without being told a
+// path, the same way they'd find any other file they know to look for.
+export function defaultLogPath(): string {
+  return path.join(process.env.USERPROFILE ?? ".", "Desktop", "clicks.log");
+}
 
 let enabled = false;
-let currentPath = LOG_PATH;
+let currentPath = defaultLogPath();
 let maxBytesLimit = 1_000_000;
 let backupCountLimit = 3;
 
-export function enable(logPath: string = LOG_PATH, maxBytes = 1_000_000, backupCount = 3): void {
+export function enable(logPath: string = defaultLogPath(), maxBytes = 1_000_000, backupCount = 3): void {
   if (enabled) return;
   currentPath = logPath;
   maxBytesLimit = maxBytes;

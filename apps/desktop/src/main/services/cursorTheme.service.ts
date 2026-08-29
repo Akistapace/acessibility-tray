@@ -23,18 +23,18 @@ const advapi32 = koffi.load("advapi32.dll");
 const SystemParametersInfoW = user32.func(
   "bool SystemParametersInfoW(uint32 uiAction, uint32 uiParam, void *pvParam, uint32 fWinIni)"
 );
-// The registry Arrow/CursorBaseSize values only take visible effect on the
-// NEXT logon -- confirmed by direct measurement (GetIconInfo/GetObject on
-// the live system cursor still reports the stock 32x32 monochrome bitmap
-// right after writing a 96px CursorBaseSize and rebroadcasting
-// SPI_SETCURSORS). SetSystemCursor is the mechanism real cursor-swap
-// utilities use for an INSTANT, this-session-only visual change: load our
-// .cur at its own real pixel size (LR_LOADFROMFILE, no LR_DEFAULTSIZE so
-// Windows doesn't resample it back down) and hand it directly to the
-// live Arrow cursor slot. It owns/destroys the handle it's given, so no
-// separate DestroyCursor call is needed. The registry writes below still
-// matter for persistence across the next logon and for other apps reading
-// the scheme, but they're not what makes the slider visible right now.
+// The registry Arrow value only takes visible effect on the NEXT logon --
+// confirmed by direct measurement (GetIconInfo/GetObject on the live system
+// cursor still reports the stock 32x32 monochrome bitmap right after
+// writing it and rebroadcasting SPI_SETCURSORS). SetSystemCursor is the
+// mechanism real cursor-swap utilities use for an INSTANT, this-session-only
+// visual change: load our .cur at its own real pixel size (LR_LOADFROMFILE,
+// no LR_DEFAULTSIZE so Windows doesn't resample it back down) and hand it
+// directly to the live Arrow cursor slot. It owns/destroys the handle it's
+// given, so no separate DestroyCursor call is needed. The registry write
+// below still matters for persistence across the next logon and for other
+// apps reading the scheme, but it's not what makes the slider visible right
+// now.
 const LoadImageW = user32.func(
   "void *LoadImageW(void *hinst, const char16_t *lpszName, uint32 uType, int32 cx, int32 cy, uint32 fuLoad)"
 );
@@ -59,10 +59,16 @@ const CURSORS_KEY = "Control Panel\\Cursors";
 const ARROW_VALUE = "Arrow";
 // Windows' own Ease of Access > Mouse pointer "Change pointer size" slider
 // persists as this DWORD, and the shell scales EVERY loaded cursor to it at
-// render time -- including a custom per-role override like ours. Writing a
-// differently-sized .cur file to the Arrow value alone has no visible size
-// effect until this is updated to match; Windows' own settings dialog
-// always writes both together for the same reason.
+// render time -- including every OTHER role (Hand, Cross/precision-select,
+// IBeam, Wait, ...), not just Arrow. applyCursor() below deliberately never
+// writes this: the generated .cur is already built at the exact target
+// pixel size (buildCurBytesColor/buildCurBytesMista(sizePx)) and
+// applyLiveSystemCursor loads it with LR_LOADFROMFILE (no LR_DEFAULTSIZE),
+// so Arrow renders at the right size with no base-size scaling involved --
+// writing this to match Arrow's chosen size used to supersize every other
+// stock pointer shape along with it (a real regression, caught live).
+// restoreCursor() still knows how to write it back, in case an older stash
+// on disk carries one from before this was found.
 const BASE_SIZE_VALUE = "CursorBaseSize";
 const REG_SZ = 1;
 const REG_DWORD = 4;
@@ -225,8 +231,9 @@ export function applyCursor(sizePx: number, mode: string, customColor: string, c
     const curPath = path.join(cursorDir, CUR_FILENAME);
     fs.writeFileSync(curPath, curBytes);
     const arrowOk = writeArrowRegistry(curPath);
-    const baseSizeOk = writeCursorBaseSize(sizePx);
-    if (arrowOk || baseSizeOk) broadcastCursorChange();
+    // CursorBaseSize deliberately not written here -- see the constant's
+    // own comment above for why.
+    if (arrowOk) broadcastCursorChange();
     applyLiveSystemCursor(curPath);
   } catch (exc) {
     console.error(`facemesh-mouse: cursor theme apply failed (${exc})`);

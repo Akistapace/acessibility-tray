@@ -35,83 +35,219 @@
         <button class="tab-button" data-tab="extras">Extras</button>
         <button class="tab-button" data-tab="ajuda">Ajuda</button>
       </div>
+
       <div id="tab-movimento" class="tab-panel active">
-        <label>Sensibilidade horizontal
-          <input type="range" id="sensitivity_x" min="0.005" max="0.10" step="0.001" />
-          <output for="sensitivity_x" class="range-value"></output>
-        </label>
-        <label>Sensibilidade vertical
-          <input type="range" id="sensitivity_y" min="0.005" max="0.10" step="0.001" />
-          <output for="sensitivity_y" class="range-value"></output>
-        </label>
-        <label>Aceleração
-          <input type="range" id="acceleration" min="0" max="1" step="0.01" />
-          <output for="acceleration" class="range-value"></output>
-        </label>
-        <label>Limiar de movimento (px)
-          <input type="range" id="motion_threshold_px" min="0" max="10" step="0.1" />
-          <output for="motion_threshold_px" class="range-value"></output>
-        </label>
-        <label>Espera antes do cursor retomar controle após movimento manual (s)
-          <input type="range" id="yield_resume_after_s" min="1" max="10" step="0.1" />
-          <output for="yield_resume_after_s" class="range-value"></output>
-        </label>
-        <label><input type="checkbox" id="dwell_click_enabled" /> Clique por permanência</label>
-        <label>Tempo de permanência (s)
-          <input type="range" id="dwell_time_s" min="0.3" max="5" step="0.1" />
-          <output for="dwell_time_s" class="range-value"></output>
-        </label>
+        <div class="tab-scroll">
+          <div>
+            <div class="section-title">Velocidade do cursor</div>
+            <div class="section-desc">Escolha um estilo ou ajuste na mão em Personalizado.</div>
+            <div class="preset-grid" id="preset-grid">
+              <div class="preset-btn" data-preset="suave">
+                <div class="preset-label">Suave</div>
+                <div class="preset-desc">Movimento leve</div>
+              </div>
+              <div class="preset-btn" data-preset="padrao">
+                <div class="preset-label">Padrão</div>
+                <div class="preset-desc">Recomendado</div>
+              </div>
+              <div class="preset-btn" data-preset="rapido">
+                <div class="preset-label">Rápido</div>
+                <div class="preset-desc">Resposta ágil</div>
+              </div>
+              <div class="preset-btn" data-preset="personalizado">
+                <div class="preset-label">Personalizado</div>
+                <div class="preset-desc">Ajuste na mão</div>
+              </div>
+            </div>
+          </div>
+
+          <div id="custom-sliders" class="card">
+            <label>
+              <div class="range-row"><span>Sensibilidade horizontal</span><output for="sensitivity_x" class="range-value"></output></div>
+              <input type="range" id="sensitivity_x" min="0.005" max="0.10" step="0.001" />
+            </label>
+            <label>
+              <div class="range-row"><span>Sensibilidade vertical</span><output for="sensitivity_y" class="range-value"></output></div>
+              <input type="range" id="sensitivity_y" min="0.005" max="0.10" step="0.001" />
+            </label>
+            <label>
+              <div class="range-row"><span>Aceleração</span><output for="acceleration" class="range-value"></output></div>
+              <input type="range" id="acceleration" min="0" max="1" step="0.01" />
+            </label>
+            <label>
+              <div class="range-row"><span>Limiar de movimento (px)</span><output for="motion_threshold_px" class="range-value"></output></div>
+              <input type="range" id="motion_threshold_px" min="0" max="10" step="0.1" />
+            </label>
+            <label>
+              <div class="range-row"><span>Espera para retomar (s)</span><output for="yield_resume_after_s" class="range-value"></output></div>
+              <input type="range" id="yield_resume_after_s" min="1" max="10" step="0.1" />
+            </label>
+          </div>
+
+          <div class="card">
+            <div class="switch-row">
+              <div class="switch-row-text">
+                <div class="switch-row-label">Clique por permanência</div>
+                <div class="switch-row-sub">Clica sozinho quando o cursor fica parado sobre um ponto.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="dwell_click_enabled" />
+                <span class="switch-track"><span class="switch-knob"></span></span>
+              </label>
+            </div>
+            <div id="dwell-time-row">
+              <label>
+                <div class="range-row"><span>Tempo de permanência</span><output for="dwell_time_s" class="range-value"></output></div>
+                <input type="range" id="dwell_time_s" min="0.3" max="5" step="0.1" />
+              </label>
+            </div>
+          </div>
+        </div>
+
         <button class="secondary-button save-trigger">Salvar configurações</button>
       </div>
+
       <div id="tab-gestos" class="tab-panel">
-        <div id="gesture-rows"></div>
-        <button class="secondary-button save-trigger">Salvar configurações</button>
-      </div>
-      <div id="tab-extras" class="tab-panel">
-        <label>
-          <input type="checkbox" id="keyboard_button_enabled" /> Mostrar botão de teclado virtual
-        </label>
-        <p class="hint">
-          Desative se você não usa o teclado virtual.
-        </p>
-        <label>
-          <input type="checkbox" id="voice_button_enabled" /> Mostrar botão de digitação por voz
-        </label>
-        <p class="hint">
-          Desative se você não usa digitação por voz,  botão de microfone some
-          da tela junto com o de teclado.
-        </p>
-        <label><input type="checkbox" id="click_logging_enabled" /> Registrar cliques em clicks.log</label>
-        <div class="cursor-section">
-          <strong>Configurações do mouse</strong>
-          <label>Tamanho da seta
-            <input type="range" id="cursor_size_px" min="32" max="96" step="8" />
-            <output for="cursor_size_px" class="range-value"></output>
-          </label>
-          <label>Cor
-            <select id="cursor_mode">
-              <option value="default">Padrão do Windows</option>
-              <option value="white">Branco</option>
-              <option value="black">Preto</option>
-              <option value="custom">Personalizada</option>
-              <option value="mista">Mista (inverte com o fundo)</option>
-            </select>
-          </label>
-          <label id="cursor_custom_color_row">Cor personalizada
-            <input type="color" id="cursor_custom_color" />
-          </label>
+        <div class="tab-scroll">
+          <div class="section-desc">
+            Associe expressões do rosto a ações do mouse. Desative as que você não usa para evitar cliques acidentais.
+          </div>
+          <div id="gesture-rows"></div>
         </div>
         <button class="secondary-button save-trigger">Salvar configurações</button>
       </div>
+
+      <div id="tab-extras" class="tab-panel">
+        <div class="tab-scroll">
+          <div class="card">
+            <div class="switch-row">
+              <div class="switch-row-text">
+                <div class="switch-row-label">Mostrar botão de teclado virtual</div>
+                <div class="switch-row-sub">Desative se você não usa o teclado virtual.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="keyboard_button_enabled" />
+                <span class="switch-track"><span class="switch-knob"></span></span>
+              </label>
+            </div>
+            <div class="switch-row">
+              <div class="switch-row-text">
+                <div class="switch-row-label">Mostrar botão de digitação por voz</div>
+                <div class="switch-row-sub">Desative se você não usa digitação por voz, botão de microfone some da tela junto com o de teclado.</div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="voice_button_enabled" />
+                <span class="switch-track"><span class="switch-knob"></span></span>
+              </label>
+            </div>
+            <div class="switch-row">
+              <div class="switch-row-text">
+                <div class="switch-row-label">Registrar cliques em clicks.log</div>
+                <div class="switch-row-sub" id="click-log-path-display"></div>
+              </div>
+              <label class="switch">
+                <input type="checkbox" id="click_logging_enabled" />
+                <span class="switch-track"><span class="switch-knob"></span></span>
+              </label>
+            </div>
+            <div style="display:flex; gap:8px;">
+              <button type="button" id="choose-click-log-path-button" class="secondary-button" style="flex:1;">Escolher pasta...</button>
+              <button type="button" id="reset-click-log-path-button" class="secondary-button" style="flex:0 0 auto;">Padrão</button>
+            </div>
+          </div>
+
+          <!-- Hidden for now (feature paused, not removed) -->
+          <div style="display:none">
+            <div class="section-title">Configurações do mouse</div>
+            <div class="card">
+              <label>
+                <div class="range-row"><span>Tamanho da seta</span><output for="cursor_size_px" class="range-value"></output></div>
+                <input type="range" id="cursor_size_px" min="8" max="96" step="8" />
+              </label>
+              <div>
+                <span class="cursor-mode-heading">Cor</span>
+                <select id="cursor_mode" style="display:none">
+                  <option value="default">Padrão do Windows</option>
+                  <option value="white">Branco</option>
+                  <option value="black">Preto</option>
+                  <option value="custom">Personalizada</option>
+                  <option value="mista">Mista (inverte com o fundo)</option>
+                </select>
+                <div class="cursor-mode-grid" id="cursor-mode-grid">
+                  <div class="cursor-mode-btn" data-mode="default">
+                    <div class="cursor-mode-preview">
+                      <svg viewBox="0 0 24 24"><polygon points="4,2 4,18 8,14 11,20 14,18.5 11,13 17,13" fill="#000" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="cursor-mode-label">Padrão</div>
+                  </div>
+                  <div class="cursor-mode-btn" data-mode="black">
+                    <div class="cursor-mode-preview">
+                      <svg viewBox="0 0 24 24"><polygon points="4,2 4,18 8,14 11,20 14,18.5 11,13 17,13" fill="#000" stroke="#fff" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="cursor-mode-label">Preto</div>
+                  </div>
+                  <div class="cursor-mode-btn" data-mode="white">
+                    <div class="cursor-mode-preview">
+                      <svg viewBox="0 0 24 24"><polygon points="4,2 4,18 8,14 11,20 14,18.5 11,13 17,13" fill="#fff" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="cursor-mode-label">Branco</div>
+                  </div>
+                  <div class="cursor-mode-btn" data-mode="mista">
+                    <div class="cursor-mode-preview mista">
+                      <svg viewBox="0 0 24 24"><polygon points="4,2 4,18 8,14 11,20 14,18.5 11,13 17,13" fill="none" stroke="#888" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="cursor-mode-label">Invertido</div>
+                  </div>
+                  <div class="cursor-mode-btn" data-mode="custom">
+                    <div class="cursor-mode-preview" id="cursor-mode-custom-preview">
+                      <svg viewBox="0 0 24 24"><polygon id="cursor-mode-custom-polygon" points="4,2 4,18 8,14 11,20 14,18.5 11,13 17,13" fill="#22c55e" stroke="#000" stroke-width="1.5" stroke-linejoin="round"/></svg>
+                    </div>
+                    <div class="cursor-mode-label">Personalizada</div>
+                  </div>
+                </div>
+              </div>
+              <label id="cursor_custom_color_row">Cor personalizada
+                <input type="color" id="cursor_custom_color" />
+              </label>
+              <button type="button" id="reset-cursor-button" class="secondary-button">Redefinir para padrão</button>
+            </div>
+          </div>
+        </div>
+
+        <button class="secondary-button save-trigger">Salvar configurações</button>
+      </div>
+
       <div id="tab-ajuda" class="tab-panel">
-        <p>
-          1. Movimento — ajuste os sliders de sensibilidade, aceleração e limiar de
-          movimento. 2. Gestos — escolha a ação de cada gesto e por quanto tempo
-          segurar. 3. Extras — ligue ou desligue recursos opcionais. 4. Iniciar —
-          a janela some e o cursor passa a seguir a cabeça. 5. Salvar configurações
-          — grava os ajustes atuais no arquivo.
-        </p>
-        <p>Ctrl+Alt+P pausa/retoma. Ctrl+Alt+O reabre esta janela.</p>
+        <div class="tab-scroll">
+          <div class="ajuda-layout">
+            <div class="ajuda-main">
+              <div class="section-title">Perguntas frequentes</div>
+              <div class="faq-item">
+                <button class="faq-q"><span>O rastreamento funciona com qualquer webcam?</span><span class="faq-q-symbol">+</span></button>
+                <div class="faq-a">Sim, qualquer webcam do Windows funciona. Uma boa iluminação frontal melhora a precisão.</div>
+              </div>
+              <div class="faq-item">
+                <button class="faq-q"><span>Meus dados de vídeo saem do computador?</span><span class="faq-q-symbol">+</span></button>
+                <div class="faq-a">Não. Todo o processamento acontece localmente, nada é enviado para a internet.</div>
+              </div>
+              <div class="faq-item">
+                <button class="faq-q"><span>Como recalibrar depois de trocar de lugar?</span><span class="faq-q-symbol">+</span></button>
+                <div class="faq-a">Vá em Movimento e clique em "Redefinir posição do teclado/microfone", ou reposicione a câmera e ajuste os sliders de sensibilidade.</div>
+              </div>
+              <div class="faq-item">
+                <button class="faq-q"><span>O controle continua ativo se eu fechar esta janela?</span><span class="faq-q-symbol">+</span></button>
+                <div class="faq-a">Sim. Fechar esta janela só a esconde, o controle do mouse continua exatamente como estava. Reabra com Ctrl+Alt+O.</div>
+              </div>
+            </div>
+            <div class="ajuda-side">
+              <div class="section-title">Atalhos de teclado</div>
+              <div class="shortcuts-box">
+                <div class="shortcut-row"><span>Pausar/retomar controle</span><span class="shortcut-keys">Ctrl + Alt + P</span></div>
+                <div class="shortcut-row"><span>Reabrir esta janela</span><span class="shortcut-keys">Ctrl + Alt + O</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   </div>

@@ -65,7 +65,7 @@ if (!gotLock) {
       toggleVoiceTyping,
     });
 
-    if (config.calibration.click_logging_enabled) clickLog.enable();
+    if (config.calibration.click_logging_enabled) clickLog.enable(config.calibration.click_log_path ?? undefined);
 
     backend.on("message", (message: { type: string; message?: string }) => {
       if (message.type !== "error") return;

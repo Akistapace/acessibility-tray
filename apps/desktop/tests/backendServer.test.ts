@@ -17,6 +17,14 @@ vi.mock("../src/main/services/cursorTheme.service", () => ({
   applyCursor: (...args: unknown[]) => applyCursorMock(...args),
 }));
 
+// dialog.showOpenDialog can't run for real under vitest -- no live Electron
+// app to attach a native folder picker to. showOpenDialogMock's resolved
+// value is set per test that needs a non-default (canceled) result.
+const showOpenDialogMock = vi.fn(() => Promise.resolve({ canceled: false, filePaths: ["C:\\chosen"] }));
+vi.mock("electron", () => ({
+  dialog: { showOpenDialog: (...args: unknown[]) => showOpenDialogMock(...args) },
+}));
+
 class FakeMouseDriver implements MouseDriver {
   position: [number, number] = [500, 500];
   async getPosition() { return this.position; }
@@ -39,6 +47,8 @@ let tmpDir: string;
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "facemesh-backend-"));
   applyCursorMock.mockClear();
+  showOpenDialogMock.mockClear();
+  showOpenDialogMock.mockImplementation(() => Promise.resolve({ canceled: false, filePaths: ["C:\\chosen"] }));
 });
 afterEach(() => {
   fs.rmSync(tmpDir, { recursive: true, force: true });
@@ -134,6 +144,54 @@ describe("BackendServer.send", () => {
 
     expect(server.config.cursor).toEqual({ size_px: 96, mode: "default", custom_color: "#abcabc" });
     expect(applyCursorMock).toHaveBeenCalledWith(96, "default", "#abcabc");
+  });
+
+  it("choose_click_log_path opens a folder picker and emits the chosen clicks.log path with isDefault:false", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+    const messagePromise = waitForMessage(server, "click_log_path");
+
+    await server.send({ type: "choose_click_log_path" });
+
+    expect(await messagePromise).toEqual({ type: "click_log_path", path: "C:\\chosen\\clicks.log", isDefault: false });
+    expect(server.config.calibration.click_log_path).toBe("C:\\chosen\\clicks.log");
+  });
+
+  it("choose_click_log_path leaves click_log_path untouched when the picker is canceled", async () => {
+    showOpenDialogMock.mockImplementation(() => Promise.resolve({ canceled: true, filePaths: [] }));
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+
+    await server.send({ type: "choose_click_log_path" });
+
+    expect(server.config.calibration.click_log_path).toBeNull();
+  });
+
+  it("reset_click_log_path sets click_log_path back to null and emits the resolved default with isDefault:true", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+    server.config.calibration.click_log_path = "C:\\somewhere\\clicks.log";
+    const messagePromise = waitForMessage(server, "click_log_path");
+
+    await server.send({ type: "reset_click_log_path" });
+
+    expect(server.config.calibration.click_log_path).toBeNull();
+    const message = await messagePromise;
+    expect(message.isDefault).toBe(true);
+    expect(typeof message.path).toBe("string");
+    expect(message.path).not.toBe("");
+  });
+
+  it("get_config also emits the currently-resolved click_log_path", async () => {
+    const engine = new TrackingEngine(configMod.defaultConfig(), new FakeMouseDriver(), [1000, 1000]);
+    const server = new BackendServer({ engine, config: configMod.defaultConfig() });
+    const messagePromise = waitForMessage(server, "click_log_path");
+
+    await server.send({ type: "get_config" });
+
+    const message = await messagePromise;
+    expect(message.isDefault).toBe(true);
+    expect(typeof message.path).toBe("string");
   });
 
   it("save_config writes to disk and merges a partial payload onto the existing file", async () => {

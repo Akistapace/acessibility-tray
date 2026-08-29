@@ -5,6 +5,8 @@
 // .send(command), the same two members apps/desktop/src/main/ipc/relay.ts's
 // wireBackendRelay already expects.
 import { EventEmitter } from "node:events";
+import { dialog } from "electron";
+import path from "node:path";
 import * as clickLog from "./clickLog.service";
 import { configFromDict, configToDict, cursorFromDict, GESTURE_NAMES, loadConfig, saveConfig, type AppConfig } from "./config.service";
 // Only applyCursor is used here -- it already internally delegates to
@@ -186,6 +188,7 @@ export class BackendServer extends EventEmitter {
           this.engine.updateConfig(this.config);
           this.syncClickLogging(this.config);
           this.emit("message", { type: "config", config: configToDict(saved) });
+          this.emitClickLogPath();
           break;
         }
         case "open_keyboard": {
@@ -200,7 +203,27 @@ export class BackendServer extends EventEmitter {
           break;
         case "get_config":
           this.emit("message", { type: "config", config: configToDict(this.config) });
+          this.emitClickLogPath();
           break;
+        case "choose_click_log_path": {
+          const result = await dialog.showOpenDialog({
+            title: "Escolher pasta para o log de cliques",
+            defaultPath: path.dirname(this.resolvedClickLogPath()),
+            properties: ["openDirectory", "createDirectory"],
+          });
+          if (!result.canceled && result.filePaths[0]) {
+            this.config.calibration.click_log_path = path.join(result.filePaths[0], "clicks.log");
+            this.syncClickLogging(this.config);
+            this.emitClickLogPath();
+          }
+          break;
+        }
+        case "reset_click_log_path": {
+          this.config.calibration.click_log_path = null;
+          this.syncClickLogging(this.config);
+          this.emitClickLogPath();
+          break;
+        }
         default:
           break;
       }
@@ -211,10 +234,32 @@ export class BackendServer extends EventEmitter {
 
   private syncClickLogging(config: AppConfig): void {
     try {
-      if (config.calibration.click_logging_enabled) clickLog.enable();
+      if (config.calibration.click_logging_enabled) clickLog.enable(config.calibration.click_log_path ?? undefined);
       else clickLog.disable();
     } catch (exc) {
       console.error(`facemesh-mouse: click log setup failed (${exc})`);
     }
+  }
+
+  // The resolved, always-concrete path clicks.log is (or would be) written
+  // to right now -- config.calibration.click_log_path is null whenever the
+  // user hasn't picked one, so the UI needs this to have something real to
+  // display instead of "null".
+  private resolvedClickLogPath(): string {
+    return this.config.calibration.click_log_path ?? clickLog.defaultLogPath();
+  }
+
+  // isDefault tells the renderer whether to keep click_log_path as null
+  // (portable -- resolves correctly on whatever machine/profile actually
+  // runs the app) or as this concrete path when it later builds a
+  // save_config payload; without it, a plain "reset to default" click would
+  // get persisted as this one machine's literal Desktop path instead of
+  // staying "no override, use the default".
+  private emitClickLogPath(): void {
+    this.emit("message", {
+      type: "click_log_path",
+      path: this.resolvedClickLogPath(),
+      isDefault: this.config.calibration.click_log_path === null,
+    });
   }
 }

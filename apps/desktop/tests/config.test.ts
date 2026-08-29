@@ -123,6 +123,24 @@ describe("loadConfig", () => {
     expect(cal.keyboard_button_enabled).toBe(true);
     expect(cal.voice_button_enabled).toBe(true);
   });
+
+  it("defaults click_log_path to null", () => {
+    expect(configMod.defaultConfig().calibration.click_log_path).toBeNull();
+  });
+
+  it("round-trips a chosen click_log_path", () => {
+    const original = configMod.defaultConfig();
+    original.calibration.click_log_path = "D:\\logs\\clicks.log";
+
+    const restored = configMod.configFromDict(configMod.configToDict(original));
+
+    expect(restored.calibration.click_log_path).toBe("D:\\logs\\clicks.log");
+  });
+
+  it("falls back to null for an empty or non-string click_log_path", () => {
+    expect(configMod.configFromDict({ calibration: { click_log_path: "" } }).calibration.click_log_path).toBeNull();
+    expect(configMod.configFromDict({ calibration: { click_log_path: 123 } }).calibration.click_log_path).toBeNull();
+  });
 });
 
 describe("save/load round trip", () => {
@@ -170,8 +188,8 @@ describe("cursorFromDict", () => {
     expect(configMod.defaultConfig().cursor).toEqual({ size_px: 32, mode: "default", custom_color: "#000000" });
   });
 
-  it("clamps size_px to [32, 96]", () => {
-    expect(configMod.cursorFromDict({ size_px: 10 }).size_px).toBe(32);
+  it("clamps size_px to [8, 96]", () => {
+    expect(configMod.cursorFromDict({ size_px: 2 }).size_px).toBe(8);
     expect(configMod.cursorFromDict({ size_px: 500 }).size_px).toBe(96);
     expect(configMod.cursorFromDict({ size_px: 64 }).size_px).toBe(64);
   });

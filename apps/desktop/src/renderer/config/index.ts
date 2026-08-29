@@ -2,7 +2,7 @@ import { computeToggleState } from "./toggleState.js";
 import { GESTURE_LABELS, GESTURE_NAMES, ACTION_LABELS } from "./labels.js";
 
 interface AppConfigJson {
-  calibration: Record<string, number | boolean>;
+  calibration: Record<string, number | boolean | string | null>;
   gestures: Record<string, { action: string; threshold: number; cooldown_ms: number; hold_ms: number }>;
   action_buttons: { x: number | null; y: number | null };
   cursor: { size_px: number; mode: string; custom_color: string };
@@ -16,6 +16,7 @@ let currentConfig: AppConfigJson = {
     motion_threshold_px: 0,
     yield_resume_after_s: 3,
     click_logging_enabled: true,
+    click_log_path: null,
     dwell_click_enabled: false,
     dwell_time_s: 1,
     keyboard_button_enabled: true,
@@ -43,41 +44,155 @@ const preview = document.getElementById("preview") as HTMLImageElement;
 const statusLabel = document.getElementById("status-label") as HTMLDivElement;
 const toggleButton = document.getElementById("toggle-button") as HTMLButtonElement;
 
+// Preset buttons above the Movimento sliders are a pure UI convenience --
+// the backend only ever sees the five underlying calibration numbers. Each
+// preset's values are approximate, hand-picked translations of "gentle /
+// default / fast" onto this app's actual slider ranges (CALIBRATION_RANGES
+// in config.service.ts); "padrão" matches the shipped defaultCalibration()
+// exactly so it's always a safe, reversible choice.
+const PRESET_FIELDS = ["sensitivity_x", "sensitivity_y", "acceleration", "motion_threshold_px", "yield_resume_after_s"] as const;
+type PresetField = (typeof PRESET_FIELDS)[number];
+const PRESETS: Record<string, Record<PresetField, number>> = {
+  suave: { sensitivity_x: 0.015, sensitivity_y: 0.015, acceleration: 0, motion_threshold_px: 4, yield_resume_after_s: 4 },
+  padrao: { sensitivity_x: 0.025, sensitivity_y: 0.05, acceleration: 0.5, motion_threshold_px: 0, yield_resume_after_s: 3 },
+  rapido: { sensitivity_x: 0.05, sensitivity_y: 0.07, acceleration: 0.8, motion_threshold_px: 0, yield_resume_after_s: 1.5 },
+};
+
+// A config saved before presets existed (or hand-tuned since) won't match
+// any preset's exact numbers -- falling back to "personalizado" in that
+// case keeps the real sliders visible instead of silently hiding a user's
+// existing custom tuning behind a preset that doesn't actually match it.
+function detectPreset(): string {
+  for (const [id, vals] of Object.entries(PRESETS)) {
+    const isMatch = PRESET_FIELDS.every((field) => Math.abs((currentConfig.calibration[field] as number) - vals[field]) < 1e-9);
+    if (isMatch) return id;
+  }
+  return "personalizado";
+}
+
+function setPresetUI(id: string): void {
+  document.querySelectorAll<HTMLElement>(".preset-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.preset === id);
+  });
+  const customCard = document.getElementById("custom-sliders");
+  if (customCard) customCard.style.display = id === "personalizado" ? "flex" : "none";
+}
+
+document.querySelectorAll<HTMLElement>(".preset-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const id = btn.dataset.preset as string;
+    if (id !== "personalizado") {
+      const vals = PRESETS[id];
+      for (const field of PRESET_FIELDS) {
+        const el = document.getElementById(field) as HTMLInputElement | null;
+        if (el) el.value = String(vals[field]);
+        currentConfig.calibration[field] = vals[field];
+      }
+      initRangeOutputs();
+    }
+    setPresetUI(id);
+  });
+});
+
+function updateDwellTimeVisibility(): void {
+  const enabled = (document.getElementById("dwell_click_enabled") as HTMLInputElement | null)?.checked ?? false;
+  const row = document.getElementById("dwell-time-row");
+  if (row) row.style.display = enabled ? "" : "none";
+}
+document.getElementById("dwell_click_enabled")?.addEventListener("change", updateDwellTimeVisibility);
+
+// Card expand/collapse is session-local UI state, not persisted -- reopening
+// the window always starts every gesture collapsed, same as the config file
+// never remembering which accordion panel was open.
+const expandedGestures = new Set<string>();
+// Remembers the last real (non-"none") action picked for a gesture so
+// toggling it back on after toggling off restores what the user had,
+// instead of always resetting to the first entry in ACTION_LABELS.
+const lastGestureAction: Record<string, string> = {};
+const FIRST_REAL_ACTION = Object.keys(ACTION_LABELS).find((key) => key !== "none") ?? "left_click";
+
 function renderGestureRows(): void {
   const container = document.getElementById("gesture-rows") as HTMLDivElement;
   container.innerHTML = "";
+  const actionOptionsHtml = Object.entries(ACTION_LABELS)
+    .map(([value, label]) => `<option value="${value}">${label}</option>`)
+    .join("");
   for (const name of GESTURE_NAMES) {
     const gesture = currentConfig.gestures[name];
     if (!gesture) continue;
-    const row = document.createElement("div");
-    row.className = "gesture-row";
-    row.innerHTML = `
-      <strong>${GESTURE_LABELS[name]}</strong>
-      <progress id="bar-${name}" max="1" value="0"></progress>
-      <select id="action-${name}">
-        ${Object.entries(ACTION_LABELS)
-          .map(([value, label]) => `<option value="${value}">${label}</option>`)
-          .join("")}
-      </select>
-      <label>Espera (ms)
-        <input type="range" id="hold-${name}" min="0" max="1000" step="10" />
-        <output for="hold-${name}" class="range-value"></output>
-      </label>
-      <label>Intervalo (ms)
-        <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" />
-        <output for="cooldown-${name}" class="range-value"></output>
-      </label>
+    if (gesture.action !== "none") lastGestureAction[name] = gesture.action;
+
+    const expanded = expandedGestures.has(name);
+    const card = document.createElement("div");
+    card.className = "gesture-card" + (expanded ? " expanded" : "");
+    card.innerHTML = `
+      <div class="gesture-header">
+        <div class="gesture-name">${GESTURE_LABELS[name]}</div>
+        <select id="action-${name}">${actionOptionsHtml}</select>
+        <label class="switch">
+          <input type="checkbox" id="enabled-${name}" />
+          <span class="switch-track"><span class="switch-knob"></span></span>
+        </label>
+        <button type="button" class="gesture-expand" id="expand-${name}">${expanded ? "▲" : "▼"}</button>
+      </div>
+      <progress id="bar-${name}" class="gesture-progress" max="1" value="0"></progress>
+      <div class="gesture-body">
+        <label>
+          <div class="range-row"><span>Sensibilidade de detecção</span><output for="sensitivity-${name}" class="range-value"></output></div>
+          <input type="range" id="sensitivity-${name}" min="0" max="1" step="0.01" />
+          <div class="range-desc">Quão forte o gesto precisa ser pra contar. Mais baixo = mais fácil de disparar (mas mais chance de disparar sem querer).</div>
+        </label>
+        <label>
+          <div class="range-row"><span>Tempo para acionar (ms)</span><output for="hold-${name}" class="range-value"></output></div>
+          <input type="range" id="hold-${name}" min="0" max="1000" step="10" />
+          <div class="range-desc">Quanto tempo segurar o gesto até ele disparar a ação.</div>
+        </label>
+        <label>
+          <div class="range-row"><span>Intervalo entre cliques (ms)</span><output for="cooldown-${name}" class="range-value"></output></div>
+          <input type="range" id="cooldown-${name}" min="50" max="1500" step="10" />
+          <div class="range-desc">Tempo mínimo de espera antes que o mesmo gesto possa disparar de novo.</div>
+        </label>
+      </div>
     `;
-    container.appendChild(row);
-    row.addEventListener("pointerenter", () => {
+    container.appendChild(card);
+
+    card.addEventListener("pointerenter", () => {
       window.backend.send({ type: "highlight_gesture", gesture: name });
     });
-    row.addEventListener("pointerleave", () => {
+    card.addEventListener("pointerleave", () => {
       window.backend.send({ type: "highlight_gesture", gesture: null });
     });
-    (row.querySelector(`#action-${name}`) as HTMLSelectElement).value = gesture.action;
-    (row.querySelector(`#hold-${name}`) as HTMLInputElement).value = String(gesture.hold_ms);
-    (row.querySelector(`#cooldown-${name}`) as HTMLInputElement).value = String(gesture.cooldown_ms);
+
+    const actionEl = card.querySelector(`#action-${name}`) as HTMLSelectElement;
+    const enabledEl = card.querySelector(`#enabled-${name}`) as HTMLInputElement;
+    const expandEl = card.querySelector(`#expand-${name}`) as HTMLButtonElement;
+    actionEl.value = gesture.action;
+    enabledEl.checked = gesture.action !== "none";
+    (card.querySelector(`#sensitivity-${name}`) as HTMLInputElement).value = String(gesture.threshold);
+    (card.querySelector(`#hold-${name}`) as HTMLInputElement).value = String(gesture.hold_ms);
+    (card.querySelector(`#cooldown-${name}`) as HTMLInputElement).value = String(gesture.cooldown_ms);
+
+    // The action dropdown and the on/off switch both drive the same
+    // underlying "action" field -- keep them mirrored so picking "(nenhuma)"
+    // from the dropdown flips the switch off, and vice versa.
+    actionEl.addEventListener("change", () => {
+      if (actionEl.value !== "none") lastGestureAction[name] = actionEl.value;
+      enabledEl.checked = actionEl.value !== "none";
+    });
+    enabledEl.addEventListener("change", () => {
+      if (enabledEl.checked) {
+        actionEl.value = lastGestureAction[name] ?? FIRST_REAL_ACTION;
+      } else {
+        if (actionEl.value !== "none") lastGestureAction[name] = actionEl.value;
+        actionEl.value = "none";
+      }
+    });
+    expandEl.addEventListener("click", () => {
+      const isExpanded = card.classList.toggle("expanded");
+      expandEl.textContent = isExpanded ? "▲" : "▼";
+      if (isExpanded) expandedGestures.add(name);
+      else expandedGestures.delete(name);
+    });
   }
 }
 
@@ -94,7 +209,11 @@ function applyConfigToForm(): void {
   if (cursorModeEl) cursorModeEl.value = currentConfig.cursor.mode;
   const cursorColorEl = document.getElementById("cursor_custom_color") as HTMLInputElement | null;
   if (cursorColorEl) cursorColorEl.value = currentConfig.cursor.custom_color;
+  document.getElementById("cursor-mode-custom-polygon")?.setAttribute("fill", currentConfig.cursor.custom_color);
   updateCustomColorVisibility();
+  updateCursorModeTiles();
+  updateDwellTimeVisibility();
+  setPresetUI(detectPreset());
   renderGestureRows();
   initRangeOutputs();
 }
@@ -108,6 +227,37 @@ function updateCustomColorVisibility(): void {
   if (row) row.style.display = mode === "custom" ? "" : "none";
 }
 document.getElementById("cursor_mode")?.addEventListener("change", updateCustomColorVisibility);
+
+// Visual pointer-style picker (mirrors Windows' own Settings > Mouse
+// pointer "style" tiles) -- the real state of record stays the hidden
+// #cursor_mode <select> above, so every existing read/save/apply path
+// (readFormIntoConfig, scheduleCursorApply, the reset button) keeps
+// working unchanged; a tile click just sets that select's value and
+// dispatches "input" so scheduleCursorApply's existing listener fires.
+function updateCursorModeTiles(): void {
+  const mode = (document.getElementById("cursor_mode") as HTMLSelectElement | null)?.value;
+  document.querySelectorAll<HTMLElement>(".cursor-mode-btn").forEach((btn) => {
+    btn.classList.toggle("active", btn.dataset.mode === mode);
+  });
+}
+
+document.querySelectorAll<HTMLElement>(".cursor-mode-btn").forEach((btn) => {
+  btn.addEventListener("click", () => {
+    const selectEl = document.getElementById("cursor_mode") as HTMLSelectElement;
+    selectEl.value = btn.dataset.mode ?? "default";
+    selectEl.dispatchEvent(new Event("input", { bubbles: true }));
+    updateCustomColorVisibility();
+    updateCursorModeTiles();
+  });
+});
+
+// The "Personalizada" tile previews the actual chosen custom color live,
+// same as Windows' own custom-color tile does.
+document.getElementById("cursor_custom_color")?.addEventListener("input", () => {
+  const colorEl = document.getElementById("cursor_custom_color") as HTMLInputElement;
+  const polygon = document.getElementById("cursor-mode-custom-polygon");
+  polygon?.setAttribute("fill", colorEl.value);
+});
 
 // Keeps each slider's <output for="..."> in sync with its current value --
 // both right after a programmatic .value assignment (initial load, config
@@ -148,12 +298,11 @@ function readFormIntoConfig(): void {
     if (cooldownEl && currentConfig.gestures[name]) {
       currentConfig.gestures[name].cooldown_ms = Number(cooldownEl.value);
     }
+    const sensitivityEl = document.getElementById(`sensitivity-${name}`) as HTMLInputElement | null;
+    if (sensitivityEl && currentConfig.gestures[name]) {
+      currentConfig.gestures[name].threshold = Number(sensitivityEl.value);
+    }
   }
-  currentConfig.cursor = {
-    size_px: Number((document.getElementById("cursor_size_px") as HTMLInputElement).value),
-    mode: (document.getElementById("cursor_mode") as HTMLSelectElement).value,
-    custom_color: (document.getElementById("cursor_custom_color") as HTMLInputElement).value,
-  };
 }
 
 // This window never owns action_buttons or custom_keyboard: the floating
@@ -253,6 +402,43 @@ for (const id of ["cursor_size_px", "cursor_mode", "cursor_custom_color"]) {
   document.getElementById(id)?.addEventListener("input", scheduleCursorApply);
 }
 
+// Mirrors defaultCursor() in config.service.ts.
+document.getElementById("reset-cursor-button")?.addEventListener("click", () => {
+  const sizeEl = document.getElementById("cursor_size_px") as HTMLInputElement;
+  const modeEl = document.getElementById("cursor_mode") as HTMLSelectElement;
+  const colorEl = document.getElementById("cursor_custom_color") as HTMLInputElement;
+  sizeEl.value = "32";
+  modeEl.value = "default";
+  colorEl.value = "#000000";
+  updateRangeOutput(sizeEl);
+  document.getElementById("cursor-mode-custom-polygon")?.setAttribute("fill", "#000000");
+  updateCustomColorVisibility();
+  updateCursorModeTiles();
+  scheduleCursorApply();
+});
+
+// The resolved path is owned by the backend (clickLog.service.ts's own
+// default lives in the main process, not something this sandboxed renderer
+// can compute), so display and currentConfig are both only ever updated
+// from the "click_log_path" broadcast below -- never guessed locally.
+function renderClickLogPath(logPath: string, isDefault: boolean): void {
+  const display = document.getElementById("click-log-path-display");
+  if (display) display.textContent = `Salvo em: ${logPath}`;
+  // Keeping this in sync with what's actually live means a later "Salvar"
+  // persists what the backend is really using right now. isDefault keeps
+  // that as null (portable -- resolves correctly on whatever machine/user
+  // profile actually runs the app) instead of baking in this one absolute
+  // path the moment the user picks "Padrão".
+  currentConfig.calibration.click_log_path = isDefault ? null : logPath;
+}
+
+document.getElementById("choose-click-log-path-button")?.addEventListener("click", () => {
+  window.backend.send({ type: "choose_click_log_path" });
+});
+document.getElementById("reset-click-log-path-button")?.addEventListener("click", () => {
+  window.backend.send({ type: "reset_click_log_path" });
+});
+
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => {
     document.querySelectorAll(".tab-button").forEach((b) => b.classList.remove("active"));
@@ -270,9 +456,35 @@ document.querySelectorAll(".tab-button").forEach((button) => {
   });
 });
 
+// FAQ accordion in the Ajuda tab is static markup and purely local UI state
+// (nothing here is persisted or sent to the backend), so it's wired once
+// against the fixed set of .faq-item elements in the HTML rather than being
+// generated from a data list.
+document.querySelectorAll<HTMLElement>(".faq-item").forEach((item) => {
+  const question = item.querySelector(".faq-q");
+  question?.addEventListener("click", () => {
+    const wasOpen = item.classList.contains("open");
+    document.querySelectorAll<HTMLElement>(".faq-item").forEach((other) => {
+      other.classList.remove("open");
+      const symbol = other.querySelector(".faq-q-symbol");
+      if (symbol) symbol.textContent = "+";
+    });
+    if (!wasOpen) {
+      item.classList.add("open");
+      const symbol = item.querySelector(".faq-q-symbol");
+      if (symbol) symbol.textContent = "−";
+    }
+  });
+});
+
 window.backend.on("status", (message) => {
   lastStatus = message as typeof lastStatus;
   updateToggleButton();
+});
+
+window.backend.on("click_log_path", (message) => {
+  const { path: logPath, isDefault } = message as { path: string; isDefault: boolean };
+  renderClickLogPath(logPath, isDefault);
 });
 
 window.backend.on("frame", (message) => {

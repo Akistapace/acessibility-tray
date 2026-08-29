@@ -62,6 +62,9 @@ export interface CalibrationConfig {
   motion_threshold_px: number;
   yield_resume_after_s: number;
   click_logging_enabled: boolean;
+  // null -- use clickLog.service.ts's own default (the user's Desktop).
+  // A user-chosen folder; the file itself is always named clicks.log.
+  click_log_path: string | null;
   dwell_click_enabled: boolean;
   dwell_time_s: number;
   keyboard_button_enabled: boolean;
@@ -85,6 +88,7 @@ function defaultCalibration(): CalibrationConfig {
     motion_threshold_px: 0.0,
     yield_resume_after_s: 3.0,
     click_logging_enabled: true,
+    click_log_path: null,
     dwell_click_enabled: false,
     dwell_time_s: 1.0,
     keyboard_button_enabled: true,
@@ -124,7 +128,11 @@ export interface GestureConfig {
   hold_ms: number;
 }
 
-export const CURSOR_SIZE_RANGE: [number, number] = [32, 96];
+// Lower bound dropped from 32 to 8 -- Arrow is a custom-generated bitmap
+// (cursorImage.ts), not a scaled stock resource, so it renders correctly
+// at any size; 8px is just a practical floor before the shape gets too
+// small to recognize.
+export const CURSOR_SIZE_RANGE: [number, number] = [8, 96];
 
 export interface CursorConfig {
   size_px: number;
@@ -203,6 +211,9 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
   const clickLoggingRaw = rawCal.click_logging_enabled;
   const click_logging_enabled = typeof clickLoggingRaw === "boolean" ? clickLoggingRaw : fallback.calibration.click_logging_enabled;
 
+  const clickLogPathRaw = rawCal.click_log_path;
+  const click_log_path = typeof clickLogPathRaw === "string" && clickLogPathRaw.length > 0 ? clickLogPathRaw : null;
+
   const dwellRaw = rawCal.dwell_click_enabled;
   const dwell_click_enabled = typeof dwellRaw === "boolean" ? dwellRaw : fallback.calibration.dwell_click_enabled;
 
@@ -219,6 +230,7 @@ export function configFromDict(raw: Record<string, unknown>): AppConfig {
     motion_threshold_px: clamped(rawCal, "motion_threshold_px", fallback.calibration.motion_threshold_px),
     yield_resume_after_s: clamped(rawCal, "yield_resume_after_s", fallback.calibration.yield_resume_after_s),
     click_logging_enabled,
+    click_log_path,
     dwell_click_enabled,
     dwell_time_s: clamped(rawCal, "dwell_time_s", fallback.calibration.dwell_time_s),
     keyboard_button_enabled,

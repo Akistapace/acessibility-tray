@@ -27,8 +27,8 @@ describe("buildCurBytesColor", () => {
   });
 
   // 256 is outside this feature's cursor size range (CURSOR_SIZE_RANGE is
-  // 32-96px, wired up in a later task), so the "256 encoded as byte 0"
-  // ICO/CUR edge case is unreachable in practice and isn't tested here.
+  // 8-96px), so the "256 encoded as byte 0" ICO/CUR edge case is
+  // unreachable in practice and isn't tested here.
 
   it("total byte length matches a 32bpp BGRA image plus a 1bpp AND mask, both padded to 4-byte rows", () => {
     const sizePx = 32;
