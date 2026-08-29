@@ -1,4 +1,4 @@
-# FaceMesh Mouse
+# Acessibility Mouse Tracking
 
 Controle o mouse com a cabeça, sem precisar das mãos.
 
