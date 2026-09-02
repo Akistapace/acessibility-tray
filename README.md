@@ -65,8 +65,3 @@ O instalador fica em `apps/desktop/release/FaceMesh Mouse Setup <versão>.exe`.
 - Primeira execução é mais lenta (carrega o modelo de rastreamento facial).
 - Instalador não assinado → Windows SmartScreen avisa no primeiro uso.
 - Precisa conceder permissão de câmera ao app na primeira vez.
-
-## Documentação detalhada
-
-Specs completas de cada funcionalidade em
-[docs/superpowers/specs/](docs/superpowers/specs/).
