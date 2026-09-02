@@ -1,6 +1,7 @@
 {
   "name": "facemesh-mouse",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "build": "pnpm --filter @facemesh-mouse/desktop build",
     "dev": "pnpm --filter @facemesh-mouse/desktop dev",
