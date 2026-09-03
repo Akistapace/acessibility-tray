@@ -1,72 +1,61 @@
-# Acessibility Mouse Tracking
+# Accessibility Mouse Tracking
 
-Controle o mouse com a cabeça, sem precisar das mãos.
+Control your mouse with your head, without using your hands.
 
-![Demo do FaceMesh Mouse](docs/media/demo.gif)
+![FaceMesh Mouse Demo](docs/media/demo.gif)
 
-## Por que existe
+## Why it exists
 
-Esse projeto nasceu pra ajudar pessoas com limitação motora nas mãos ou
-braços a usar o computador. Rastreando o rosto pela webcam, o app move o
-cursor com o movimento da cabeça e transforma expressões faciais (piscar,
-levantar sobrancelha, abrir a boca) em cliques: dá pra usar o mouse
-inteiro sem tocar em nada.
+This project was created to help people with motor limitations affecting their hands or arms use a computer. By tracking the face through the webcam, the app moves the cursor based on head movements and turns facial expressions (blinking, raising an eyebrow, opening your mouth) into clicks. You can use the entire mouse without touching anything.
 
-## Como funciona
+## How it works
 
-- Move a cabeça → o cursor se move (igual um mouse de verdade, sensibilidade
-  ajustável).
-- Faz um gesto facial (piscar o olho esquerdo, por exemplo) → dispara um
-  clique. Nove gestos disponíveis, cada um configurável pra qualquer ação
-  (clique esquerdo, direito, duplo, scroll) ou desligado.
-- Cada gesto exige segurar a expressão por um tempinho antes de valer, pra
-  uma piscada natural não virar clique sem querer.
-- Depois de configurar, salva e roda em segundo plano com ícone na
-  bandeja, não precisa deixar nenhuma janela aberta.
-- Um círculo flutuante sempre visível abre o teclado virtual do Windows e a
-  digitação por voz, pra quem também precisa digitar sem as mãos.
-- Se você usar o mouse físico, o app cede o controle na hora e devolve
-  quando você parar.
+* Move your head → the cursor moves (just like a real mouse, with adjustable sensitivity).
+* Make a facial gesture (e.g., blink your left eye) → triggers a click. Nine gestures are available, each configurable to any action (left click, right click, double click, scroll) or disabled.
+* Each gesture requires you to hold the expression for a short period before triggering, preventing a natural blink from accidentally becoming a click.
+* Once configured, the app saves your settings and runs in the background with a system tray icon. No window needs to remain open.
+* A floating circle provides quick access to the Windows virtual keyboard and voice typing, for users who also need to type without their hands.
+* If you use a physical mouse, the app immediately gives control back to it and resumes head control when you stop.
 
-Atalhos globais: `Ctrl+Alt+P` pausa/retoma o controle pela cabeça,
-`Ctrl+Alt+O` reabre a janela de configuração.
+Global shortcuts: `Ctrl+Alt+P` pauses/resumes head control, and `Ctrl+Alt+O` reopens the configuration window.
 
-## Requisitos
+## Requirements
 
-- Windows
-- Webcam com permissão de câmera liberada
+* Windows
+* Webcam with camera permissions enabled
 
-## Usar
+## Usage
 
 ```powershell
 pnpm install
+
 pnpm dev
 ```
 
-Abre a janela de configuração na primeira execução: prévia da câmera à
-esquerda, abas de ajuste à direita (Movimento, Gestos, Extras, Ajuda).
-Ajuste sensibilidade e gestos, clique em "Salvar configurações" e depois em
-"Iniciar controle do mouse".
+The configuration window opens on the first run: camera preview on the left, with configuration tabs on the right (Movement, Gestures, Extras, Help).
 
-## Testes
+Adjust the sensitivity and gestures, click **"Save Settings"**, and then click **"Start Mouse Control"**.
+
+## Tests
 
 ```powershell
 pnpm test
 ```
 
-## Gerar instalador (.exe)
+## Build the Installer (.exe)
 
 ```powershell
 pnpm dist
 ```
 
-O instalador fica em `apps/desktop/release/FaceMesh Mouse Setup <versão>.exe`.
+The installer will be generated at:
 
-- Primeira execução é mais lenta (carrega o modelo de rastreamento facial).
-- Instalador não assinado → Windows SmartScreen avisa no primeiro uso.
-- Precisa conceder permissão de câmera ao app na primeira vez.
+`apps/desktop/release/FaceMesh Mouse Setup <version>.exe`
 
-## Open source
+* The first launch is slower because the facial tracking model needs to load.
+* The installer is unsigned, so Windows SmartScreen may display a warning on first use.
+* The app needs camera permission the first time it runs.
 
-Projeto open source sob licença [MIT](LICENSE). Fique à vontade pra usar,
-modificar e contribuir.
+## Open Source
+
+This is an open-source project released under the [MIT](LICENSE) license. Feel free to use, modify, and contribute.
